@@ -1,5 +1,6 @@
 import express from "express";
 import { errorHandler, notFoundHandler } from "./errors.js";
+import { getConfig } from "./config.js";
 import { corsMiddleware } from "./middleware/cors.js";
 import { optionalAuth } from "./middleware/auth.js";
 import adminRouter from "./routes/admin.js";
@@ -11,6 +12,7 @@ import holdsRouter from "./routes/holds.js";
 export function createApp() {
   const app = express();
   app.disable("x-powered-by");
+  app.set("trust proxy", getConfig().trustProxy);
   app.use(corsMiddleware);
   app.use(express.json({ limit: "32kb" }));
   app.use(optionalAuth);

@@ -3,6 +3,7 @@ import { loginClient, logoutClient, publicClient, registerClient } from "../../d
 import { getConfig } from "../config.js";
 import { clearSessionCookie, setSessionCookie } from "../cookies.js";
 import { requireAuth } from "../middleware/auth.js";
+import { authRateLimit } from "../middleware/rate-limit.js";
 
 const router = express.Router();
 
@@ -17,17 +18,17 @@ function sendSession(req, res, status, result) {
   });
 }
 
-router.post("/register", (req, res) => {
-  const result = registerClient(req.body, getConfig().sessionDays);
+router.post("/register", authRateLimit("register"), async (req, res) => {
+  const result = await registerClient(req.body, getConfig().sessionDays);
   sendSession(req, res, 201, result);
 });
 
-router.post("/login", (req, res) => {
-  const result = loginClient(req.body, getConfig().sessionDays);
+router.post("/login", authRateLimit("login"), async (req, res) => {
+  const result = await loginClient(req.body, getConfig().sessionDays);
   sendSession(req, res, 200, result);
 });
 
-router.post("/logout", (req, res) => {
+router.post("/logout", requireAuth, (req, res) => {
   logoutClient(req.sessionToken);
   clearSessionCookie(res, getConfig().nodeEnv === "production");
   res.status(200).json({ ok: true });

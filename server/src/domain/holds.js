@@ -13,8 +13,15 @@ import {
 import { addNotification, purgeExpiredHolds } from "./cleanup.js";
 import { getStudioSettings } from "./settings.js";
 import { addMinutesIso, nowUtcIso } from "./time.js";
-import { parseId, parseOptionalToken, parseServiceIds, parseUtcInstant, requireBodyObject } from "./validate.js";
-import { resolveOverlapOverride } from "../http/config.js";
+import {
+  parseHoldToken,
+  parseId,
+  parseOptionalToken,
+  parseServiceIds,
+  parseUtcInstant,
+  requireBodyObject,
+} from "./validate.js";
+import { resolveOverlapOverride } from "./roles.js";
 
 function createHoldToken() {
   return crypto.randomBytes(24).toString("hex");
@@ -96,13 +103,13 @@ export function attachHoldToClient(db, holdToken, clientId) {
   }
 }
 
-export function createHold(body, clientId = null, actorEmail = null) {
+export function createHold(body, clientId = null, actor = null) {
   const payload = requireBodyObject(body);
   const masterId = parseId(payload.master_id, "master_id");
   const serviceIds = parseServiceIds(payload.service_ids);
   const startsAt = parseUtcInstant(payload.starts_at);
   const reuseToken = parseOptionalToken(payload.hold_token);
-  const overlapOverride = resolveOverlapOverride(actorEmail, payload.overlap_override);
+  const overlapOverride = resolveOverlapOverride(actor, payload.overlap_override);
   const db = getDb();
 
   return runInTransaction(db, () => {
@@ -187,20 +194,16 @@ function requireLiveHold(db, token) {
 }
 
 export function getHold(token) {
-  if (!token || typeof token !== "string") {
-    throw new HttpError(400, "VALIDATION_ERROR", "Некорректный hold_token");
-  }
+  const holdToken = parseHoldToken(token);
   const db = getDb();
-  const hold = requireLiveHold(db, token);
+  const hold = requireLiveHold(db, holdToken);
   return serializeHold(db, hold);
 }
 
 export function deleteHold(token) {
-  if (!token || typeof token !== "string") {
-    throw new HttpError(400, "VALIDATION_ERROR", "Некорректный hold_token");
-  }
+  const holdToken = parseHoldToken(token);
   const db = getDb();
-  const result = db.prepare("DELETE FROM booking_holds WHERE hold_token = ?").run(token);
+  const result = db.prepare("DELETE FROM booking_holds WHERE hold_token = ?").run(holdToken);
   if (result.changes === 0) {
     throw new HttpError(409, "HOLD_EXPIRED", "Резерв истек или не найден");
   }

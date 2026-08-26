@@ -8,13 +8,19 @@ import { addDaysYmd, isoWeekday, ymdInTimeZone } from "../domain/time.js";
 const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "nogotochki-api-"));
 process.env.DATABASE_PATH = path.join(tempDir, "test.sqlite");
 process.env.NODE_ENV = "test";
-process.env.ADMIN_EMAILS = "admin@nogotochki.test";
 process.env.PORT = "0";
+process.env.DEV_ADMIN_PASSWORD = "DevAdmin123!";
+process.env.DEV_MASTER_PASSWORD = "DevMaster123!";
+process.env.DEV_CLIENT_PASSWORD = "DevClient123!";
 
 const { applyMigrations } = await import("../db/migrate.js");
 const { seedDev } = await import("../db/seed-dev.js");
-const { closeDb } = await import("../db/connection.js");
+const { closeDb, getDb } = await import("../db/connection.js");
 const { createApp } = await import("./app.js");
+const { hashToken } = await import("../domain/auth.js");
+const { parseScryptHash } = await import("../domain/password.js");
+const { errorHandler } = await import("./errors.js");
+const { configureAuthRateLimit, resetAuthRateLimits } = await import("./middleware/rate-limit.js");
 
 let server;
 let base;
@@ -79,6 +85,8 @@ async function firstOpenSlot(masterId, serviceIds) {
 }
 
 before(async () => {
+  configureAuthRateLimit({ loginMax: 100, registerMax: 100, ipMax: 200, windowMs: 15 * 60 * 1000 });
+  resetAuthRateLimits();
   applyMigrations();
   seedDev();
   const app = createApp();
@@ -115,12 +123,14 @@ test("register login me logout", async () => {
   assert.equal(registered.status, 201);
   assert.equal(registered.body.client.email, email);
   assert.equal(registered.body.client.is_admin, false);
+  assert.deepEqual(registered.body.client.roles, ["client"]);
   assert.ok(registered.body.token);
   assertNoSecrets(registered.body);
 
   const me = await api("/api/auth/me", { token: registered.body.token });
   assert.equal(me.status, 200);
   assert.equal(me.body.client.email, email);
+  assert.deepEqual(me.body.client.roles, ["client"]);
 
   const loggedOut = await api("/api/auth/logout", { token: registered.body.token, method: "POST" });
   assert.equal(loggedOut.status, 200);
@@ -314,7 +324,7 @@ test("reschedule moves the same row", async () => {
   assert.equal(moved.body.appointment.starts_at, nextSlot.starts_at);
 });
 
-test("admin endpoints reject a client and allow the allowlist", async () => {
+test("admin endpoints reject a client and allow an administrator role", async () => {
   const client = await api("/api/auth/login", {
     method: "POST",
     body: JSON.stringify({ email: "client@nogotochki.test", password: "DevClient123!" }),
@@ -461,3 +471,287 @@ test("admin overlap_override can sit on a busy slot; later clients still see it 
   });
   assert.equal(blocked.status, 409);
 });
+
+test("passwords are unique salted scrypt and sessions store only the hash", async () => {
+  const db = getDb();
+  const seeded = db
+    .prepare(
+      `
+      SELECT email, password_hash FROM clients
+      WHERE email IN ('admin@nogotochki.test', 'master@nogotochki.test', 'client@nogotochki.test')
+      ORDER BY email
+      `,
+    )
+    .all();
+  assert.equal(seeded.length, 3);
+  const salts = new Set();
+  for (const row of seeded) {
+    assert.equal(row.password_hash.startsWith("$2"), false);
+    assert.match(row.password_hash, /^\$scrypt\$N=\d+\$r=\d+\$p=\d+\$/);
+    const parsed = parseScryptHash(row.password_hash);
+    assert.ok(parsed);
+    salts.add(parsed.salt.toString("base64url"));
+  }
+  assert.equal(salts.size, 3);
+
+  const first = await api("/api/auth/register", {
+    method: "POST",
+    body: JSON.stringify({
+      email: `scrypt-a-${Date.now()}@example.com`,
+      password: "Secret123",
+      password_confirmation: "Secret123",
+      role: "administrator",
+      roles: ["administrator"],
+      is_admin: true,
+      client_id: 1,
+      password_hash: "ignore-me",
+      status: "confirmed",
+    }),
+  });
+  const second = await api("/api/auth/register", {
+    method: "POST",
+    body: JSON.stringify({
+      email: `scrypt-b-${Date.now()}@example.com`,
+      password: "Secret123",
+      password_confirmation: "Secret123",
+    }),
+  });
+  assert.equal(first.status, 201);
+  assert.equal(second.status, 201);
+  assert.deepEqual(first.body.client.roles, ["client"]);
+  assert.equal(first.body.client.is_admin, false);
+
+  const hashes = db
+    .prepare("SELECT email, password_hash FROM clients WHERE id IN (?, ?)")
+    .all(first.body.client.id, second.body.client.id);
+  const parsedA = parseScryptHash(hashes[0].password_hash);
+  const parsedB = parseScryptHash(hashes[1].password_hash);
+  assert.ok(parsedA && parsedB);
+  assert.notEqual(parsedA.salt.toString("base64url"), parsedB.salt.toString("base64url"));
+
+  const token = first.body.token;
+  const session = db.prepare("SELECT token_hash, expires_at FROM sessions WHERE client_id = ?").get(first.body.client.id);
+  assert.ok(session);
+  assert.notEqual(session.token_hash, token);
+  assert.equal(session.token_hash, hashToken(token));
+  assert.ok(session.expires_at > new Date().toISOString().replace(/\.\d{3}Z$/, "Z"));
+});
+
+test("appointment visibility follows the role list", async () => {
+  const client = await api("/api/auth/login", {
+    method: "POST",
+    body: JSON.stringify({ email: "client@nogotochki.test", password: "DevClient123!" }),
+  });
+  const master = await api("/api/auth/login", {
+    method: "POST",
+    body: JSON.stringify({ email: "master@nogotochki.test", password: "DevMaster123!" }),
+  });
+  const admin = await api("/api/auth/login", {
+    method: "POST",
+    body: JSON.stringify({ email: "admin@nogotochki.test", password: "DevAdmin123!" }),
+  });
+  assert.deepEqual(master.body.client.roles, ["master"]);
+  assert.equal(master.body.client.is_admin, false);
+  assert.deepEqual(admin.body.client.roles, ["administrator"]);
+  assert.equal(admin.body.client.is_admin, true);
+
+  const deniedAdmin = await api("/api/admin/appointments", { token: client.body.token });
+  assert.equal(deniedAdmin.status, 403);
+
+  const masterAdmin = await api("/api/admin/appointments", { token: master.body.token });
+  assert.equal(masterAdmin.status, 403);
+
+  const adminList = await api("/api/admin/appointments", { token: admin.body.token });
+  assert.equal(adminList.status, 200);
+  const allIds = new Set(adminList.body.appointments.map((row) => row.id));
+  assert.ok(allIds.size >= 3);
+
+  const unifiedAdmin = await api("/api/appointments", { token: admin.body.token });
+  assert.equal(unifiedAdmin.status, 200);
+  assert.ok(unifiedAdmin.body.appointments.length >= adminList.body.appointments.length);
+
+  const masterList = await api("/api/appointments", { token: master.body.token });
+  assert.equal(masterList.status, 200);
+  assert.ok(masterList.body.appointments.length >= 1);
+  assert.ok(masterList.body.appointments.every((row) => row.master.id === 1));
+
+  const otherMasterAppointment = adminList.body.appointments.find((row) => row.master.id === 2);
+  assert.ok(otherMasterAppointment);
+  const masterForbidden = await api(`/api/appointments/${otherMasterAppointment.id}`, {
+    token: master.body.token,
+  });
+  assert.equal(masterForbidden.status, 403);
+
+  const ownSchedule = masterList.body.appointments[0];
+  const masterCanSee = await api(`/api/appointments/${ownSchedule.id}`, { token: master.body.token });
+  assert.equal(masterCanSee.status, 200);
+  assert.equal(masterCanSee.body.appointment.id, ownSchedule.id);
+
+  const masterCannotCancel = await api(`/api/appointments/${ownSchedule.id}/cancel`, {
+    method: "POST",
+    token: master.body.token,
+  });
+  assert.equal(masterCannotCancel.status, 403);
+
+  const otherClientAppointment = adminList.body.appointments.find(
+    (row) => row.client?.email === "client@nogotochki.test",
+  );
+  const outsider = await api("/api/auth/register", {
+    method: "POST",
+    body: JSON.stringify({
+      email: `other-${Date.now()}@example.com`,
+      password: "Secret123",
+      password_confirmation: "Secret123",
+    }),
+  });
+  const strangerGet = await api(`/api/appointments/${otherClientAppointment.id}`, {
+    token: outsider.body.token,
+  });
+  assert.equal(strangerGet.status, 403);
+  const strangerCancel = await api(`/api/appointments/${otherClientAppointment.id}/cancel`, {
+    method: "POST",
+    token: outsider.body.token,
+  });
+  assert.equal(strangerCancel.status, 403);
+});
+
+test("extra body fields and invalid dates are rejected or ignored", async () => {
+  const badDate = await api("/api/holds", {
+    method: "POST",
+    body: JSON.stringify({
+      master_id: 1,
+      service_ids: [1],
+      starts_at: "2026-02-31T07:00:00Z",
+    }),
+  });
+  assert.equal(badDate.status, 400);
+
+  const tooLong = await api("/api/auth/register", {
+    method: "POST",
+    body: JSON.stringify({
+      email: `long-${Date.now()}@example.com`,
+      password: "a".repeat(201),
+      password_confirmation: "a".repeat(201),
+    }),
+  });
+  assert.equal(tooLong.status, 400);
+
+  const client = await api("/api/auth/login", {
+    method: "POST",
+    body: JSON.stringify({ email: "client@nogotochki.test", password: "DevClient123!" }),
+  });
+  const mine = await api("/api/appointments?scope=active", { token: client.body.token });
+  const appointment = mine.body.appointments[0];
+  const rescheduleIgnored = await api(`/api/appointments/${appointment.id}/reschedule`, {
+    method: "POST",
+    token: client.body.token,
+    body: JSON.stringify({
+      starts_at: appointment.starts_at,
+      status: "confirmed",
+      overlap_override: true,
+      client_id: 999,
+    }),
+  });
+  assert.notEqual(rescheduleIgnored.status, 500);
+  if (rescheduleIgnored.status === 200) {
+    assert.notEqual(rescheduleIgnored.body.appointment.status, "confirmed");
+    assert.equal(rescheduleIgnored.body.appointment.overlap_override, false);
+  }
+});
+
+test("login and register bursts return 429", async () => {
+  configureAuthRateLimit({ loginMax: 4, registerMax: 4, ipMax: 100, windowMs: 60_000 });
+  resetAuthRateLimits();
+  try {
+    let lastLogin;
+    for (let i = 0; i < 6; i += 1) {
+      lastLogin = await api("/api/auth/login", {
+        method: "POST",
+        body: JSON.stringify({ email: "brute@example.com", password: "WrongPass1" }),
+      });
+    }
+    assert.equal(lastLogin.status, 429);
+    assert.equal(lastLogin.body.error.code, "RATE_LIMITED");
+    assert.equal(lastLogin.body.error.message, "Слишком много попыток, попробуйте позже");
+    assert.doesNotMatch(JSON.stringify(lastLogin.body), /sqlite|bucket|stack|limiter/i);
+
+    resetAuthRateLimits();
+    let lastRegister;
+    for (let i = 0; i < 6; i += 1) {
+      lastRegister = await api("/api/auth/register", {
+        method: "POST",
+        body: JSON.stringify({
+          email: `burst-${Date.now()}-${i}@example.com`,
+          password: "Secret123",
+          password_confirmation: "Secret123",
+        }),
+      });
+    }
+    assert.equal(lastRegister.status, 429);
+    assert.equal(lastRegister.body.error.code, "RATE_LIMITED");
+  } finally {
+    configureAuthRateLimit({ loginMax: 100, registerMax: 100, ipMax: 200, windowMs: 15 * 60 * 1000 });
+    resetAuthRateLimits();
+  }
+});
+
+test("spoofed X-Forwarded-For does not reset login rate limit", async () => {
+  configureAuthRateLimit({ loginMax: 4, registerMax: 4, ipMax: 100, windowMs: 60_000 });
+  resetAuthRateLimits();
+  try {
+    let lastLogin;
+    for (let i = 0; i < 6; i += 1) {
+      lastLogin = await api("/api/auth/login", {
+        method: "POST",
+        headers: { "x-forwarded-for": `203.0.113.${i + 1}` },
+        body: JSON.stringify({ email: "xff-brute@example.com", password: "WrongPass1" }),
+      });
+    }
+    assert.equal(lastLogin.status, 429);
+    assert.equal(lastLogin.body.error.code, "RATE_LIMITED");
+  } finally {
+    configureAuthRateLimit({ loginMax: 100, registerMax: 100, ipMax: 200, windowMs: 15 * 60 * 1000 });
+    resetAuthRateLimits();
+  }
+});
+
+test("error handler does not echo sqlite or file paths", async () => {
+  const captured = [];
+  const res = {
+    status(code) {
+      this.statusCode = code;
+      return this;
+    },
+    json(body) {
+      captured.push(body);
+      return this;
+    },
+  };
+  const originalError = console.error;
+  console.error = () => {};
+  try {
+    errorHandler(
+      new Error("UNIQUE constraint failed: clients.email at C:\\Users\\nikus\\data\\nogotochki.sqlite"),
+      {},
+      res,
+      () => {},
+    );
+    assert.equal(res.statusCode, 500);
+    assert.equal(captured[0].error.code, "SERVER_ERROR");
+    assert.equal(captured[0].error.message, "Внутренняя ошибка сервера");
+    assert.doesNotMatch(JSON.stringify(captured[0]), /UNIQUE constraint|nogotochki\.sqlite|Users\\nikus/i);
+
+    captured.length = 0;
+    errorHandler(
+      Object.assign(new Error("SQLITE_ERROR: no such table secrets"), { code: "SQLITE_ERROR" }),
+      {},
+      res,
+      () => {},
+    );
+    assert.equal(captured[0].error.message, "Внутренняя ошибка сервера");
+    assert.doesNotMatch(JSON.stringify(captured[0]), /SQLITE_ERROR|no such table/i);
+  } finally {
+    console.error = originalError;
+  }
+});
+

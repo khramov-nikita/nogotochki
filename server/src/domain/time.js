@@ -11,7 +11,14 @@ export function nowUtcIso(date = new Date()) {
 }
 
 export function isUtcIso(value) {
-  return typeof value === "string" && UTC_ISO.test(value) && !Number.isNaN(Date.parse(value));
+  if (typeof value !== "string" || !UTC_ISO.test(value)) {
+    return false;
+  }
+  const parsed = Date.parse(value);
+  if (Number.isNaN(parsed)) {
+    return false;
+  }
+  return new Date(parsed).toISOString().replace(/\.\d{3}Z$/, "Z") === value;
 }
 
 export function isYmd(value) {

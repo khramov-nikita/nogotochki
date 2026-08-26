@@ -27,16 +27,17 @@
 
 | Путь | Роль |
 |---|---|
-| [`docs/db-schema.md`](db-schema.md) | Модель: 17 таблиц, статусы, индексы, что не хранить |
+| [`docs/db-schema.md`](db-schema.md) | Модель: 19 таблиц, статусы, индексы, что не хранить |
 | [`server/migrations/001_init.sql`](../server/migrations/001_init.sql) | DDL этих 17 таблиц + UNIQUE + FK + индексы §8 |
 | [`server/migrations/003_overlap_override.sql`](../server/migrations/003_overlap_override.sql) | Колонка `overlap_override`; триггер пропускает только NEW=1 |
+| [`server/migrations/004_roles.sql`](../server/migrations/004_roles.sql) | `roles`, `client_roles`, `masters.client_id` |
 | [`server/src/db/connection.js`](../server/src/db/connection.js) | Единственное открытие файла SQLite, `PRAGMA foreign_keys = ON` |
 | [`server/src/db/migrate.js`](../server/src/db/migrate.js) | Накат `*.sql` по порядку, учёт в `schema_migrations` |
 | [`server/src/db/seed.js`](../server/src/db/seed.js) | Справочники паспорта: 7 услуг, 3 мастера, FAQ/политика |
 | [`server/src/db/seed-dev.js`](../server/src/db/seed-dev.js) | Фикстуры разработки: три клиента по email, 5 услуг, 2 мастера, 3 записи |
 | [`server/src/db/reset.js`](../server/src/db/reset.js) | Удаляет файл БД и собирает заново. **Не для прода** |
 | [`server/src/http/`](../server/src/http/) | Express: сессии, JSON-ошибки, маршруты `/api/*` |
-| [`server/src/domain/`](../server/src/domain/) | Расчёт окон §4, холды, записи, админ без колонки `role` |
+| [`server/src/domain/`](../server/src/domain/) | Расчёт окон §4, холды, записи, роли списком (`client_roles`), без колонки `clients.role` |
 | `data/nogotochki.sqlite` | Файл базы (в git не входит) |
 
 Файл по умолчанию: `data/nogotochki.sqlite` от корня репозитория. Переопределение: `DATABASE_PATH` в `.env` (относительный путь — тоже от корня).
@@ -65,9 +66,9 @@
 ### Отличие двух сидов
 
 - `npm run seed` — витрина как в паспорте (7 услуг включая сертификат, 3 мастера).
-- `npm run seed:dev` — чем проверять сервис: три тестовых аккаунта в `clients` (различаются email, колонки role нет), пять записываемых услуг, два мастера, график пн–сб 10:00–18:00, три ближайшие записи. Идемпотентен. При `NODE_ENV=production` падает.
+- `npm run seed:dev` — чем проверять сервис: три тестовых аккаунта в `clients` + роли в `client_roles` (колонки `clients.role` нет), пять записываемых услуг, два мастера, график пн–сб 10:00–18:00, три ближайшие записи. `master@nogotochki.test` связан с `masters.id = 1`. Идемпотентен. При `NODE_ENV=production` падает.
 
-В продукте v1 кабинета сотрудника и колонки `clients.role` нет. Тестовые «админ» и «мастер» — обычные строки `clients` с другой почтой, не роли в схеме.
+В продуктовом UI v1 кабинета сотрудника нет. Авторизация API берёт **список ролей из БД** (`client_roles`), не `ADMIN_EMAILS` и не поле `role` в запросе.
 
 ---
 
@@ -80,7 +81,7 @@
 | У SQLite внешние ключи по умолчанию выключены | В конструкторе `enableForeignKeyConstraints: true` и каждый раз `PRAGMA foreign_keys = ON`. FK в DDL именованные `CONSTRAINT fk_…`. |
 | Два гостя могли занять одно окно | Холд в БД, не только `localStorage`. Пересечение интервалов UNIQUE не закрыть — проверка в транзакции `BEGIN IMMEDIATE` (когда появится API записи). |
 | Без графика расчёт окон всегда пустой, часов в паспорте нет | Сид пн–сб `10:00`–`18:00`, вс без строк. Это допущение прототипа, не факт паспорта. |
-| Тестовые admin/master не из модели v1 | Колонку `role` не добавляли: три строки в `clients` с разной почтой. Админки в схеме нет. |
+| Тестовые admin/master не из модели UI v1 | Колонку `clients.role` не добавляли. Список ролей — `roles` + `client_roles`. |
 | Повторный `seed:dev` после каталожного сида оставлял мастеру 2 чужую спеку | Для мастеров 1–2 — `ON CONFLICT(id) DO UPDATE`. Записи ищутся по `(client_id, master_id, starts_at)`. |
 | Файл БД и секреты не должны уехать в git | `.gitignore`: `.env`, `*.sqlite` и WAL/SHM. В репозитории остаются `.env.example` и `data/.gitkeep`. |
 | `db:reset` на проде уничтожит клиентов | Команда только для локалки. На BeGet: `migrate`, не `reset`. `seed:dev` при production отключён. |
@@ -101,7 +102,7 @@ SQLite на **Vercel / serverless** для живой записи не подх
 
 Подключение только из `server/src/db/connection.js`. Версию Node проверяет `server/src/db/engine.js` **до** динамического `import("node:sqlite")`, чтобы на старой Node была понятная ошибка, а не `ERR_UNKNOWN_BUILTIN_MODULE`.
 
-Дополнительно: WAL, `busy_timeout = 5000`. Пароли: `bcryptjs` (чистый JS, тот же довод про BeGet). Схема допускает Argon2id — не подключали, чтобы снова не тащить native.
+Дополнительно: WAL, `busy_timeout = 5000`. Пароли: встроенный `crypto.scrypt` / `scryptSync` (чистый Node, без native-аддона). Строка в БД — PHC `$scrypt$N=…$r=…$p=…$salt$hash`, уникальная соль на пароль. bcryptjs снят: на BeGet native bcrypt/argon2 не собираем.
 
 `server/.npmrc` содержит `engine-strict=true`: `npm ci` на слишком старой Node сразу откажется.
 
@@ -137,7 +138,9 @@ npm run migrate
 - `PORT` — HTTP API, по умолчанию `3000`
 - `CORS_ORIGIN` — точный origin, если фронту нужны cookie; пусто — отражать Origin
 - `SESSION_DAYS` — срок сессии, по умолчанию `30`
-- `ADMIN_EMAILS` — почты с доступом к `/api/admin/*`, по умолчанию `admin@nogotochki.test`. Колонки `clients.role` нет
+- `TRUST_PROXY` — пусто/`0`: IP для rate limit = адрес сокета; `1`: один ближайший хоп (nginx на BeGet). `X-Forwarded-For` без этого не доверяем
+- `DEV_ADMIN_PASSWORD` / `DEV_MASTER_PASSWORD` / `DEV_CLIENT_PASSWORD` — только для `seed:dev`, значения в `.env.example`. В БД пишется scrypt, не этот текст
+- Роли администратора **не** задаются через `ADMIN_EMAILS`. Источник — `client_roles`
 
 ---
 
@@ -155,7 +158,7 @@ npm start           # HTTP API (PORT, по умолчанию 3000)
 npm test            # расчёт окон + сценарии /api
 ```
 
-Тестовые логины после `seed:dev` (пароли только в консоли скрипта, в БД — bcrypt):
+Тестовые логины после `seed:dev` (пароли из env / `.env.example`, в БД — scrypt):
 
 - `admin@nogotochki.test`
 - `master@nogotochki.test`
@@ -173,9 +176,9 @@ npm test            # расчёт окон + сценарии /api
 6. Пишущий SQL к данным человека — только по явной просьбе; сначала показать запрос.
 7. API импортирует `getDb()`, не открывает файл сам.
 8. Дополняй **этот** файл, а не размазывай те же факты по пяти markdown.
-9. Админ-доступ — список почт `ADMIN_EMAILS`, не колонка `role`.
+9. Админ-доступ — роль `administrator` в `client_roles`, не список почт и не колонка `clients.role`.
 10. Пересечение визитов одного мастера закрывают триггеры `appointments_no_overlap_*` и `BEGIN IMMEDIATE`. Текст SQLite клиенту не отдаём.
-11. Наложение поверх чужого визита — только `overlap_override=1` и `isAdminEmail`. Чужой INSERT всё равно видит эту запись как занятость.
+11. Наложение поверх чужого визита — только `overlap_override=1` и роль `administrator` в списке. Чужой INSERT всё равно видит эту запись как занятость.
 12. Единственный INSERT записи — `insertAppointment` в `server/src/domain/appointments.js`. Клиентский HTTP: `POST /api/appointments` → `createAppointment`. Перенос — `rescheduleAppointment`, отмена — `cancelAppointment`. Кабинета мастера и админской отмены/переноса чужих визитов в паспорте нет — не добавлять.
 
 ---
@@ -196,18 +199,20 @@ npm test            # расчёт окон + сценарии /api
 | 2026-08-26 | Админ может сесть поверх визита: `003_overlap_override.sql`, флаг только если `isAdminEmail`; клиентский `overlap_override` игнорируется. |
 | 2026-08-26 | Запись в БД только через `insertAppointment`: API, seed-dev и overlap-тесты. Перенос/отмена — `rescheduleAppointment` / `cancelAppointment`. |
 | 2026-08-26 | Сверка с паспортом и «Путём клиента»: создание, отмена и перенос — сценарии клиента (3 и 4). Кабинета сотрудника, отмены/переноса чужих визитов мастером или админом в v1 нет — не реализовывали. `.gitattributes`: текст в LF. |
+| 2026-08-26 | Безопасность API: salted scrypt вместо bcryptjs; роли списком (`roles` + `client_roles`, `masters.client_id`); админ не через `ADMIN_EMAILS`; сессия по-прежнему SHA-256 токена; rate limit на login/register; ошибки без текста SQLite. |
+| 2026-08-26 | Rate limit login/register ключуется по `req.ip`. `X-Forwarded-For` учитывается только при `TRUST_PROXY`. |
 
 ## HTTP API
 
-Префикс `/api`. Тело и ответы — JSON. Ошибки: `{ "error": { "code", "message" } }` со статусами 400 / 401 / 403 / 409 (и 404 для неизвестного маршрута или id). Конфликт слота (`SLOT_TAKEN`) дополнительно отдаёт `slots` — ближайшие свободные старты того же мастера, без текста SQLite. Создание записи и перенос идут в `BEGIN IMMEDIATE` (блокировка записи с начала транзакции). Деньги — `price_rub` (целые рубли). Инстанты — UTC с суффиксом `Z`. Сессия: httpOnly cookie `session` и поле `token` в JSON; в БД хранится SHA-256 токена. Истёкшие `booking_holds` удаляются при расчёте окон, холде, записи и раз в минуту в процессе.
+Префикс `/api`. Тело и ответы — JSON. Ошибки: `{ "error": { "code", "message" } }` со статусами 400 / 401 / 403 / 409 / 429 (и 404 для неизвестного маршрута или id). Конфликт слота (`SLOT_TAKEN`) дополнительно отдаёт `slots` — ближайшие свободные старты того же мастера, без текста SQLite. Создание записи и перенос идут в `BEGIN IMMEDIATE` (блокировка записи с начала транзакции). Деньги — `price_rub` (целые рубли). Инстанты — UTC с суффиксом `Z`. Сессия: httpOnly cookie `session` и поле `token` в JSON; в БД хранится SHA-256 токена. Пароль — salted scrypt. Клиент в JSON: `roles: string[]` и `is_admin` (true, если в списке есть `administrator`). Истёкшие `booking_holds` удаляются при расчёте окон, холде, записи и раз в минуту в процессе.
 
 | Метод | Путь | Кто | Назначение |
 |---|---|---|---|
 | GET | `/api/health` | публичный | Жив ли процесс |
-| POST | `/api/auth/register` | публичный | Регистрация, сразу сессия |
-| POST | `/api/auth/login` | публичный | Вход |
+| POST | `/api/auth/register` | публичный, rate limit по `req.ip` | Регистрация, сразу сессия, роль `client` |
+| POST | `/api/auth/login` | публичный, rate limit по `req.ip` | Вход |
 | POST | `/api/auth/logout` | сессия | Выход, гасит строку `sessions` |
-| GET | `/api/auth/me` | сессия | Текущий клиент без хеша пароля |
+| GET | `/api/auth/me` | сессия | Текущий клиент без хеша пароля, `roles` |
 | GET | `/api/services` | публичный | Прайс |
 | GET | `/api/masters` | публичный | Активные мастера; `service_ids` — умеет весь набор |
 | GET | `/api/masters/:id/availability` | публичный | Свободные старты на `date=YYYY-MM-DD` с длительностью услуг |
@@ -215,17 +220,17 @@ npm test            # расчёт окон + сценарии /api
 | GET | `/api/holds/:token` | по токену | Сводка черновика |
 | DELETE | `/api/holds/:token` | по токену | Снять резерв |
 | POST | `/api/appointments` | сессия | Подтвердить холд → `pending_prepayment` |
-| GET | `/api/appointments` | сессия | Свои записи, `scope=active\|history` |
-| GET | `/api/appointments/:id` | владелец | Детали; адрес только при `confirmed` |
+| GET | `/api/appointments` | сессия | Записи по объединению ролей, `scope=active\|history` |
+| GET | `/api/appointments/:id` | сессия + право видеть | Детали; адрес только при `confirmed` |
 | POST | `/api/appointments/:id/reschedule` | владелец | Перенос той же строки |
 | POST | `/api/appointments/:id/cancel` | владелец | Отмена по правилу §5.1 |
-| GET | `/api/admin/appointments` | `ADMIN_EMAILS` | Все записи |
-| PATCH | `/api/admin/appointments/:id` | `ADMIN_EMAILS` | `status=confirmed` |
-| GET/POST/PATCH/DELETE | `/api/admin/services` | `ADMIN_EMAILS` | Прайс |
-| GET/POST/PATCH/DELETE | `/api/admin/masters` | `ADMIN_EMAILS` | Мастера, `service_ids`, график |
+| GET | `/api/admin/appointments` | роль `administrator` | Все записи |
+| PATCH | `/api/admin/appointments/:id` | роль `administrator` | `status=confirmed` |
+| GET/POST/PATCH/DELETE | `/api/admin/services` | роль `administrator` | Прайс |
+| GET/POST/PATCH/DELETE | `/api/admin/masters` | роль `administrator` | Мастера, `service_ids`, график |
 
 ## Открытые вопросы
 
 - Прод: один процесс Node на BeGet, путь к файлу БД вне деплоя, бэкап файла. Не Vercel.
-- Кабинет сотрудника как отдельный продукт по-прежнему вне v1. Не добавлять `clients.role`.
+- Кабинет сотрудника как отдельный продукт по-прежнему вне v1. Не добавлять `clients.role`; роли — список в `client_roles`.
 - Фронтенд на этом API ещё не собирали.

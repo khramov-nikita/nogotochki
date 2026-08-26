@@ -1,9 +1,19 @@
-export function getConfig() {
-  const adminEmails = (process.env.ADMIN_EMAILS || "admin@nogotochki.test")
-    .split(",")
-    .map((value) => value.trim().toLowerCase())
-    .filter(Boolean);
+export function parseTrustProxy(value = process.env.TRUST_PROXY) {
+  const raw = String(value ?? "").trim().toLowerCase();
+  if (!raw || raw === "0" || raw === "false" || raw === "no" || raw === "off") {
+    return false;
+  }
+  if (raw === "1" || raw === "true" || raw === "yes" || raw === "on") {
+    return 1;
+  }
+  const hops = Number(raw);
+  if (Number.isInteger(hops) && hops > 1) {
+    return hops;
+  }
+  return false;
+}
 
+export function getConfig() {
   const sessionDays = Number(process.env.SESSION_DAYS);
   const port = Number(process.env.PORT);
 
@@ -11,22 +21,7 @@ export function getConfig() {
     port: Number.isInteger(port) && port > 0 ? port : 3000,
     corsOrigin: process.env.CORS_ORIGIN?.trim() || "",
     sessionDays: Number.isInteger(sessionDays) && sessionDays > 0 ? sessionDays : 30,
-    adminEmails,
     nodeEnv: process.env.NODE_ENV || "development",
+    trustProxy: parseTrustProxy(),
   };
-}
-
-export function isAdminEmail(email) {
-  if (!email) {
-    return false;
-  }
-  return getConfig().adminEmails.includes(String(email).toLowerCase());
-}
-
-export function overlapRequested(value) {
-  return value === true || value === 1 || value === "1" || value === "true";
-}
-
-export function resolveOverlapOverride(email, requested) {
-  return isAdminEmail(email) && overlapRequested(requested) ? 1 : 0;
 }

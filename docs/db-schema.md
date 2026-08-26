@@ -333,7 +333,7 @@ CHECK (status IN (
 
 ## 6. Таблицы
 
-Имена таблиц и колонок — `snake_case`, английские. Комментарии и этот документ — на русском. Всего **17 таблиц**.
+Имена таблиц и колонок — `snake_case`, английские. Комментарии и этот документ — на русском. Всего **19 таблиц** (17 исходных плюс `roles` и `client_roles`). Колонки `clients.role` нет: роли — список в `client_roles`.
 
 Первичные ключи: у каждой таблицы свой `INTEGER PRIMARY KEY` (`id`). Связки мастер–услуга и холд–услуга дополнительно имеют UNIQUE на пару ключей. Внешние ключи ссылаются только на PK (`id`) целевой таблицы; нужен `PRAGMA foreign_keys = ON`. Одно значение не копируется во вторую таблицу: см. §6.18. Пароль в открытом виде не хранится: см. §6.19.
 
@@ -425,12 +425,39 @@ CHECK (status IN (
 |---|---|---|---|---|
 | `id` | INTEGER | да | PK | |
 | `email` | TEXT | да | UNIQUE | Логин. Сравнивать нормализованно (нижний регистр) на уровне приложения |
-| `password_hash` | TEXT | да | | Только хеш (Argon2id или bcrypt). Колонок `password`, `password_plain`, `passwd` **нет** и заводить нельзя |
+| `password_hash` | TEXT | да | | Только salted scrypt (PHC: `$scrypt$N=…$r=…$p=…$salt$hash`). Колонок `password`, `password_plain`, `passwd` **нет** и заводить нельзя. Не bcrypt и не argon2: native-аддоны на BeGet не собираются |
 | `display_name` | TEXT | нет | | Имя в профиле. Регистрация его не требует |
 | `created_at` | TEXT | да | | ISO 8601 UTC |
 | `updated_at` | TEXT | да | | ISO 8601 UTC |
 
 Повтор пароля на форме регистрации и поля «текущий / новый / повтор» при смене живут только в запросе UI. В таблицу попадает новый `password_hash`. Открытый пароль не пишется ни в `clients`, ни в логи, ни в `password_reset_tokens` (там хеш **токена** ссылки, не пароля).
+
+Роль в этой таблице не хранится. Список ролей — `client_roles` (§6.21).
+
+### 6.21. `roles`
+
+**Назначение.** Справочник ролей API. Человек может иметь несколько ролей сразу.
+
+| Поле | Тип | Обязательное | Ключ | Описание |
+|---|---|---|---|---|
+| `id` | INTEGER | да | PK | |
+| `slug` | TEXT | да | UNIQUE | `client`, `master`, `administrator` |
+| `created_at` | TEXT | да | | ISO 8601 UTC |
+
+### 6.22. `client_roles`
+
+**Назначение.** Список ролей клиента (junction). Авторизация смотрит, есть ли нужный slug **в списке**, а не равен ли один столбец одному значению. Источник прав — эта таблица, не `ADMIN_EMAILS` и не поле `role` в теле запроса.
+
+| Поле | Тип | Обязательное | Ключ | Описание |
+|---|---|---|---|---|
+| `id` | INTEGER | да | PK | |
+| `client_id` | INTEGER | да | FK → `clients.id` ON DELETE CASCADE | UNIQUE вместе с `role_id` |
+| `role_id` | INTEGER | да | FK → `roles.id` ON DELETE RESTRICT | |
+| `created_at` | TEXT | да | | ISO 8601 UTC |
+
+Сиды разработки: `admin@nogotochki.test` → `administrator`; `master@nogotochki.test` → `master` и `masters.client_id` на мастера `id=1`; `client@nogotochki.test` → `client`. Регистрация выдаёт роль `client`.
+
+Видимость записей — объединение ролей: клиент видит свои (`appointments.client_id`); мастер — записи своего графика (`master_id`); администратор — все. Отмена и перенос в v1 остаются у владельца записи; подтверждение (`confirmed`) — у администратора.
 
 ### 6.6. `sessions`
 
@@ -506,6 +533,7 @@ CHECK (status IN (
 | `cover_path` | TEXT | нет | | Крупное фото `Media Frame` на карточке мастера. Если NULL — можно показать `portrait_path`, не выдумывая другое лицо |
 | `is_active` | INTEGER | да | | `0` — не показывать в записи и не подставлять при «записаться снова» |
 | `sort_order` | INTEGER | да | | Порядок в каталоге |
+| `client_id` | INTEGER | нет | UNIQUE (nullable), FK → `clients.id` ON DELETE SET NULL | Учётная запись с ролью `master`, чей это график. NULL, если мастер не привязан к входу |
 | `created_at` | TEXT | да | | ISO 8601 UTC |
 | `updated_at` | TEXT | да | | ISO 8601 UTC |
 
@@ -708,7 +736,7 @@ CHECK (type IN (
 
 ### 6.19. Пароль, первичные и внешние ключи
 
-**Пароль.** В `clients` есть только `password_hash`. Поля для открытого пароля нет. Формы входа, регистрации и смены передают пароль в приложение; в SQLite пишется результат хеш-функции. В `sessions` и `password_reset_tokens` — хеш **токена**, не пароля.
+**Пароль.** В `clients` есть только `password_hash` (salted scrypt с параметрами в строке). Поля для открытого пароля нет. Формы входа, регистрации и смены передают пароль в приложение; в SQLite пишется результат `crypto.scrypt`. В `sessions` и `password_reset_tokens` — хеш **токена**, не пароля.
 
 **Первичный ключ** есть у всех 17 таблиц: колонка `id` INTEGER PRIMARY KEY.
 
@@ -718,6 +746,9 @@ CHECK (type IN (
 |---|---|---|---|---|
 | `content_page_items.page_id` | да | `content_pages.id` | CASCADE | Пункты FAQ без страницы не нужны |
 | `sessions.client_id` | да | `clients.id` | CASCADE | Сессии клиента исчезают вместе с аккаунтом |
+| `client_roles.client_id` | да | `clients.id` | CASCADE | Список ролей живёт с аккаунтом |
+| `client_roles.role_id` | да | `roles.id` | RESTRICT | Нельзя удалить роль, пока она у кого-то есть |
+| `masters.client_id` | да, NULL | `clients.id` | SET NULL | График мастера может существовать без входа |
 | `password_reset_tokens.client_id` | да | `clients.id` | CASCADE | Токены сброса — только у существующего клиента |
 | `master_services.master_id` | да | `masters.id` | CASCADE | Связка без мастера бессмысленна |
 | `master_services.service_id` | да | `services.id` | CASCADE | Сняли услугу с прайса — убрать из умений |
@@ -769,6 +800,15 @@ erDiagram
     text email UK
     text password_hash
   }
+  roles {
+    integer id PK
+    text slug UK
+  }
+  client_roles {
+    integer id PK
+    integer client_id FK
+    integer role_id FK
+  }
   sessions {
     integer id PK
     integer client_id FK
@@ -788,6 +828,7 @@ erDiagram
   masters {
     integer id PK
     text display_name
+    integer client_id FK
   }
   master_services {
     integer id PK
@@ -835,9 +876,12 @@ erDiagram
   content_pages ||--o{ content_page_items : has
   clients ||--o{ sessions : has
   clients ||--o{ password_reset_tokens : has
+  clients ||--o{ client_roles : has
+  roles ||--o{ client_roles : granted
   clients ||--o{ appointments : books
   clients ||--o{ booking_holds : may_hold
   clients ||--o{ notifications : receives
+  clients |o--o| masters : may_login_as
   masters ||--o{ master_services : offers
   services ||--o{ master_services : offered_by
   masters ||--o{ master_schedule : weekly
@@ -867,6 +911,9 @@ erDiagram
 | `content_pages.slug` UNIQUE | Страница политики и правила находятся по ключу, не по id | Дубли страниц; приложение не знает, какой текст показать |
 | `content_page_items (page_id, sort_order)` UNIQUE | Стабильный порядок FAQ | Две пары с одним порядком: лендинг и политика отрисуют вопросы вразнобой |
 | `clients.email` UNIQUE | Один аккаунт на почту | Два клиента с одной почтой: вход попадёт не в тот кабинет, записи смешаются |
+| `roles.slug` UNIQUE | Роль находится по ключу | Дубли slug сломают проверку «есть ли роль в списке» |
+| `client_roles (client_id, role_id)` UNIQUE | Одна роль у человека один раз | Дубль в списке ролей |
+| `masters.client_id` UNIQUE WHERE NOT NULL | Один вход — один график мастера | Два мастера на одну учётную запись |
 | `sessions.token_hash` UNIQUE | Сессия однозначно ищется по cookie | Коллизия хешей привяжет чужой вход не к тому клиенту |
 | `password_reset_tokens.token_hash` UNIQUE | Одна ссылка — один токен | Нельзя надёжно пометить токен использованным |
 | `services.slug` UNIQUE | Прайсовые позиции стабильны в коде и сидах | Сиды и «записаться снова» начнут путать услуги |
@@ -896,6 +943,8 @@ PRIMARY KEY и UNIQUE уже дают индекс. Ниже — дополни�
 | `master_services (service_id)` | Обратный поиск: кто делает услугу | Шаг 2 при фильтре «набор услуг → мастера» без индекса по услуге будет идти от мастеров, не от услуг |
 | `sessions (client_id)` | Выход «на всех устройствах», список сессий | При смене пароля нельзя быстро погасить сессии клиента |
 | `sessions (expires_at)` | Очистка просроченных | Таблица сессий растёт; экран «сессия истекла» от этого не ломается, но мёртвые строки копятся |
+| `client_roles (role_id)` | Кого наделили ролью | Без индекса проверка «все администраторы» сканирует junction |
+| `masters (client_id)` UNIQUE WHERE NOT NULL | Вход мастера → его график | Два графика на один аккаунт или полный скан `masters` |
 | `password_reset_tokens (expires_at)` | Очистка и отсечка старых писем | Старые токены остаются валидными дольше, чем нужно, если смотреть только по `used_at` |
 | `notifications (client_id, created_at)` | Лента кабинета, новые сверху | Скан уведомлений всей базы на одного клиента |
 | `booking_hold_services (service_id)` | Обратный поиск: услуга в чьих холдах | Редко в прототипе; нужен, если услугу снимут с прайса при живых холдах |
@@ -917,7 +966,7 @@ PRIMARY KEY и UNIQUE уже дают индекс. Ниже — дополни�
 | `completed` / `visited` как статус | Прошедшее = время + текущий статус |
 | Черновик списка услуг только в браузере | Больше не так: состав холда в `booking_hold_services`. `localStorage` может дублировать токен, не быть единственным источником |
 | Снимки имени мастера, прайса и текста уведомлений | Дубль справочника; JOIN по внешнему ключу, §6.18 |
-| Админ-пользователи | Вне scope v1 |
+| Админ-кабинет как отдельный продукт | Вне scope UI v1. API-роли — список в `client_roles`, не колонка `clients.role` |
 | Разовые «открыть день вне графика» | Закрытия только вычитают; см. §10.18 |
 | Ночная смена через полночь | `end_time > start_time` в тот же день |
 
@@ -999,7 +1048,7 @@ JWT без таблицы проще: срок жизни внутри токе�
 
 ### 10.10. `clients`, не `users` / `profiles`
 
-В `cloud.md` фигурирует `profiles`. В v1 нет сотрудников, роли не нужны. Имя `clients` совпадает с языком паспорта («клиент сервиса») и не намекает на будущую админку, которой в прототипе нет.
+В `cloud.md` фигурирует `profiles`. Имя `clients` совпадает с языком паспорта. Колонку `clients.role` не заводим: роли — список в `client_roles` (человек может быть и мастером, и администратором).
 
 ### 10.11. Адрес студии в настройках, не в записи
 

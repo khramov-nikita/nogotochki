@@ -5,7 +5,7 @@ const router = express.Router();
 
 router.post("/", (req, res) => {
   const clientId = req.client?.id ?? null;
-  const hold = createHold(req.body, clientId, req.client?.email);
+  const hold = createHold(req.body, clientId, req.client);
   res.status(201).json({ hold });
 });
 

@@ -20,6 +20,23 @@ export function isAppointmentOverlap(error) {
   return /APPOINTMENT_OVERLAP/i.test(error?.message ?? "");
 }
 
+function isSqliteError(error) {
+  const message = error?.message ?? "";
+  const code = String(error?.code ?? "");
+  return (
+    code.startsWith("SQLITE") ||
+    /SQLITE|constraint failed|database disk|database is locked|no such table|no such column/i.test(
+      message,
+    )
+  );
+}
+
+function looksInternal(value) {
+  return /SQLITE|constraint failed|\\Users\\|\/home\/|\/var\/|node_modules|at\s+\S+\s+\(/i.test(
+    String(value ?? ""),
+  );
+}
+
 export function notFoundHandler(_req, res) {
   res.status(404).json({
     error: { code: "NOT_FOUND", message: "Маршрут не найден" },
@@ -28,10 +45,13 @@ export function notFoundHandler(_req, res) {
 
 export function errorHandler(err, _req, res, _next) {
   if (err instanceof HttpError) {
-    res.status(err.status).json({
+    const payload = {
       error: { code: err.code, message: err.message },
-      ...(err.details && typeof err.details === "object" ? err.details : {}),
-    });
+    };
+    if (err.details && typeof err.details === "object" && !looksInternal(JSON.stringify(err.details))) {
+      Object.assign(payload, err.details);
+    }
+    res.status(err.status).json(payload);
     return;
   }
 
@@ -45,6 +65,14 @@ export function errorHandler(err, _req, res, _next) {
   if (err?.type === "entity.parse.failed" || err instanceof SyntaxError) {
     res.status(400).json({
       error: { code: "VALIDATION_ERROR", message: "Некорректный JSON" },
+    });
+    return;
+  }
+
+  if (isSqliteError(err) || looksInternal(err?.message) || looksInternal(err?.stack)) {
+    console.error(err);
+    res.status(500).json({
+      error: { code: "SERVER_ERROR", message: "Внутренняя ошибка сервера" },
     });
     return;
   }

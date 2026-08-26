@@ -40,6 +40,14 @@ export function parseOptionalName(value) {
   return name || null;
 }
 
+export function parseRequiredName(value, field = "name") {
+  const name = parseOptionalName(value);
+  if (!name) {
+    throw new HttpError(400, "VALIDATION_ERROR", `Укажите ${field}`);
+  }
+  return name;
+}
+
 export function parseId(value, field = "id") {
   const number = typeof value === "number" ? value : Number(value);
   if (!Number.isInteger(number) || number < 1) {
@@ -123,4 +131,26 @@ export function parseOptionalToken(value) {
     throw new HttpError(400, "VALIDATION_ERROR", "Некорректный hold_token");
   }
   return value;
+}
+
+export function parseOptionalText(value, field, { max = 2000 } = {}) {
+  if (value == null || value === "") {
+    return null;
+  }
+  if (typeof value !== "string") {
+    throw new HttpError(400, "VALIDATION_ERROR", `Некорректное поле ${field}`);
+  }
+  const text = value.trim();
+  if (text.length > max) {
+    throw new HttpError(400, "VALIDATION_ERROR", `${field} слишком длинное`);
+  }
+  return text || null;
+}
+
+export function parseHoldToken(value) {
+  const token = parseOptionalToken(value);
+  if (!token) {
+    throw new HttpError(400, "VALIDATION_ERROR", "Некорректный hold_token");
+  }
+  return token;
 }

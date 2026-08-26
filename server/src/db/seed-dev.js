@@ -1,31 +1,54 @@
-import bcrypt from "bcryptjs";
 import { isMainModule } from "./cli.js";
 import { DATABASE_PATH, closeDb, getDb, runInTransaction } from "./connection.js";
 import { insertAppointment } from "../domain/appointments.js";
+import { hashPasswordSync } from "../domain/password.js";
+import { ROLE_ADMINISTRATOR, ROLE_CLIENT, ROLE_MASTER, replaceClientRoles } from "../domain/roles.js";
 
-const BCRYPT_ROUNDS = 10;
 const TIMEZONE = "Europe/Moscow";
-
-const TEST_USERS = [
-  {
-    key: "admin",
-    email: "admin@nogotochki.test",
-    password: "DevAdmin123!",
-    display_name: "Администратор",
-  },
-  {
-    key: "master",
-    email: "master@nogotochki.test",
-    password: "DevMaster123!",
-    display_name: "Мастер",
-  },
-  {
-    key: "client",
-    email: "client@nogotochki.test",
-    password: "DevClient123!",
-    display_name: "Клиент",
-  },
+const COUNT_TABLES = [
+  "clients",
+  "services",
+  "masters",
+  "master_schedule",
+  "appointments",
+  "appointment_services",
+  "roles",
+  "client_roles",
 ];
+
+function requireDevPassword(envKey) {
+  const value = process.env[envKey];
+  if (typeof value !== "string" || value.length < 8) {
+    throw new Error(`${envKey} must be set (see .env.example)`);
+  }
+  return value;
+}
+
+function testUsers() {
+  return [
+    {
+      key: "admin",
+      email: "admin@nogotochki.test",
+      password: requireDevPassword("DEV_ADMIN_PASSWORD"),
+      display_name: "Администратор",
+      roles: [ROLE_ADMINISTRATOR],
+    },
+    {
+      key: "master",
+      email: "master@nogotochki.test",
+      password: requireDevPassword("DEV_MASTER_PASSWORD"),
+      display_name: "Мастер",
+      roles: [ROLE_MASTER],
+    },
+    {
+      key: "client",
+      email: "client@nogotochki.test",
+      password: requireDevPassword("DEV_CLIENT_PASSWORD"),
+      display_name: "Клиент",
+      roles: [ROLE_CLIENT],
+    },
+  ];
+}
 
 function nowUtc() {
   return new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
@@ -247,8 +270,8 @@ function upsertUsers(db, now) {
   );
 
   const ids = {};
-  for (const user of TEST_USERS) {
-    const password_hash = bcrypt.hashSync(user.password, BCRYPT_ROUNDS);
+  for (const user of testUsers()) {
+    const password_hash = hashPasswordSync(user.password);
     upsert.run({
       email: user.email,
       password_hash,
@@ -257,7 +280,11 @@ function upsertUsers(db, now) {
       updated_at: now,
     });
     ids[user.key] = db.prepare("SELECT id FROM clients WHERE email = ?").get(user.email).id;
+    replaceClientRoles(db, ids[user.key], user.roles, now);
   }
+
+  db.prepare("UPDATE masters SET client_id = NULL WHERE client_id = ?").run(ids.master);
+  db.prepare("UPDATE masters SET client_id = ? WHERE id = 1").run(ids.master);
   return ids;
 }
 
@@ -336,12 +363,22 @@ function printSummary(db) {
   const users = db
     .prepare(
       `
-      SELECT id, email, display_name,
-             CASE WHEN password_hash LIKE '$2%' THEN 'bcrypt' ELSE 'other' END AS hash_kind,
-             length(password_hash) AS hash_length
-      FROM clients
-      WHERE email LIKE '%@nogotochki.test'
-      ORDER BY id
+      SELECT c.id, c.email, c.display_name,
+             CASE
+               WHEN c.password_hash LIKE '$scrypt$%' THEN 'scrypt'
+               WHEN c.password_hash LIKE '$2%' THEN 'bcrypt'
+               ELSE 'other'
+             END AS hash_kind,
+             length(c.password_hash) AS hash_length,
+             (
+               SELECT GROUP_CONCAT(r.slug, ',')
+               FROM client_roles cr
+               JOIN roles r ON r.id = cr.role_id
+               WHERE cr.client_id = c.id
+             ) AS roles
+      FROM clients c
+      WHERE c.email LIKE '%@nogotochki.test'
+      ORDER BY c.id
       `,
     )
     .all();
@@ -361,7 +398,7 @@ function printSummary(db) {
   const masters = db
     .prepare(
       `
-      SELECT id, display_name, specialization_label, is_active
+      SELECT id, display_name, specialization_label, is_active, client_id
       FROM masters
       WHERE id IN (1, 2)
       ORDER BY id
@@ -392,30 +429,26 @@ function printSummary(db) {
     )
     .all();
   const plaintextPasswords = Object.fromEntries(
-    TEST_USERS.map((user) => [user.email, user.password]),
+    testUsers().map((user) => [user.email, user.password]),
   );
   const storedPlain = db
     .prepare(
       `
       SELECT COUNT(*) AS n FROM clients
       WHERE email LIKE '%@nogotochki.test'
-        AND password_hash IN ('DevAdmin123!', 'DevMaster123!', 'DevClient123!')
+        AND password_hash IN (?, ?, ?)
       `,
     )
-    .get();
+    .get(
+      process.env.DEV_ADMIN_PASSWORD,
+      process.env.DEV_MASTER_PASSWORD,
+      process.env.DEV_CLIENT_PASSWORD,
+    );
 
-  const countTables = [
-    "clients",
-    "services",
-    "masters",
-    "master_schedule",
-    "appointments",
-    "appointment_services",
-  ];
   const rowCounts = Object.fromEntries(
-    countTables.map((table) => [
+    COUNT_TABLES.map((table) => [
       table,
-      db.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get().n,
+      db.prepare(`SELECT COUNT(*) AS n FROM "${table}"`).get().n,
     ]),
   );
 

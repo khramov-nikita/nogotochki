@@ -8,6 +8,9 @@ import { addMinutesIso, nowUtcIso } from "./time.js";
 const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "nogotochki-overlap-"));
 process.env.DATABASE_PATH = path.join(tempDir, "test.sqlite");
 process.env.NODE_ENV = "test";
+process.env.DEV_ADMIN_PASSWORD = "DevAdmin123!";
+process.env.DEV_MASTER_PASSWORD = "DevMaster123!";
+process.env.DEV_CLIENT_PASSWORD = "DevClient123!";
 
 const { applyMigrations } = await import("../db/migrate.js");
 const { seedDev } = await import("../db/seed-dev.js");

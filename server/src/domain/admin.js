@@ -8,12 +8,23 @@ import {
   parseId,
   parseInteger,
   parseOptionalName,
+  parseOptionalText,
+  parseRequiredName,
   parseServiceIds,
   requireBodyObject,
 } from "./validate.js";
 
+const SORT_TABLES = {
+  services: "services",
+  masters: "masters",
+};
+
 function nextSortOrder(db, table) {
-  return db.prepare(`SELECT COALESCE(MAX(sort_order), 0) + 1 AS n FROM ${table}`).get().n;
+  const ident = SORT_TABLES[table];
+  if (!ident) {
+    throw new HttpError(500, "SERVER_ERROR", "Внутренняя ошибка сервера");
+  }
+  return db.prepare(`SELECT COALESCE(MAX(sort_order), 0) + 1 AS n FROM "${ident}"`).get().n;
 }
 
 function loadService(db, id) {
@@ -139,10 +150,7 @@ export function listAdminServices() {
 export function createService(body) {
   const payload = requireBodyObject(body);
   const slug = parseSlug(payload.slug);
-  const name = typeof payload.name === "string" && payload.name.trim() ? payload.name.trim() : null;
-  if (!name) {
-    throw new HttpError(400, "VALIDATION_ERROR", "Укажите name");
-  }
+  const name = parseRequiredName(payload.name, "name");
   const priceRub = parseInteger(payload.price_rub, "price_rub", { min: 0 });
   const priceRubAlt = parseInteger(payload.price_rub_alt, "price_rub_alt", {
     min: 0,
@@ -164,10 +172,8 @@ export function createService(body) {
   });
   const sortOrder =
     payload.sort_order == null ? nextSortOrder(getDb(), "services") : parseInteger(payload.sort_order, "sort_order", { min: 0 });
-  const description =
-    payload.description == null || payload.description === "" ? null : String(payload.description);
-  const imagePath =
-    payload.image_path == null || payload.image_path === "" ? null : String(payload.image_path);
+  const description = parseOptionalText(payload.description, "description", { max: 2000 });
+  const imagePath = parseOptionalText(payload.image_path, "image_path", { max: 500 });
   const db = getDb();
   const now = nowUtcIso();
 
@@ -217,18 +223,11 @@ export function updateService(id, body) {
 
   const next = {
     slug: payload.slug == null ? current.slug : parseSlug(payload.slug),
-    name:
-      payload.name == null
-        ? current.name
-        : typeof payload.name === "string" && payload.name.trim()
-          ? payload.name.trim()
-          : current.name,
+    name: payload.name == null ? current.name : parseRequiredName(payload.name, "name"),
     description:
       payload.description === undefined
         ? current.description
-        : payload.description == null || payload.description === ""
-          ? null
-          : String(payload.description),
+        : parseOptionalText(payload.description, "description", { max: 2000 }),
     price_rub:
       payload.price_rub == null ? current.price_rub : parseInteger(payload.price_rub, "price_rub", { min: 0 }),
     price_rub_alt:
@@ -253,9 +252,7 @@ export function updateService(id, body) {
     image_path:
       payload.image_path === undefined
         ? current.image_path
-        : payload.image_path == null || payload.image_path === ""
-          ? null
-          : String(payload.image_path),
+        : parseOptionalText(payload.image_path, "image_path", { max: 500 }),
     sort_order:
       payload.sort_order == null
         ? current.sort_order
@@ -322,22 +319,15 @@ export function listAdminMasters() {
 
 export function createMaster(body) {
   const payload = requireBodyObject(body);
-  const specialization =
-    typeof payload.specialization_label === "string" && payload.specialization_label.trim()
-      ? payload.specialization_label.trim()
-      : null;
-  if (!specialization) {
-    throw new HttpError(400, "VALIDATION_ERROR", "Укажите specialization_label");
-  }
+  const specialization = parseRequiredName(payload.specialization_label, "specialization_label");
   const displayName = parseOptionalName(payload.display_name);
   const isActive = parseBooleanFlag(payload.is_active ?? 1, "is_active");
   const sortOrder =
     payload.sort_order == null ? nextSortOrder(getDb(), "masters") : parseInteger(payload.sort_order, "sort_order", { min: 0 });
   const serviceIds = payload.service_ids == null ? [] : parseServiceIds(payload.service_ids);
   const schedule = parseSchedule(payload.schedule) || [];
-  const portraitPath =
-    payload.portrait_path == null || payload.portrait_path === "" ? null : String(payload.portrait_path);
-  const coverPath = payload.cover_path == null || payload.cover_path === "" ? null : String(payload.cover_path);
+  const portraitPath = parseOptionalText(payload.portrait_path, "portrait_path", { max: 500 });
+  const coverPath = parseOptionalText(payload.cover_path, "cover_path", { max: 500 });
   const db = getDb();
   const now = nowUtcIso();
 
@@ -370,9 +360,7 @@ export function updateMaster(id, body) {
   const specialization =
     payload.specialization_label == null
       ? current.specialization_label
-      : typeof payload.specialization_label === "string" && payload.specialization_label.trim()
-        ? payload.specialization_label.trim()
-        : current.specialization_label;
+      : parseRequiredName(payload.specialization_label, "specialization_label");
   const displayName =
     payload.display_name === undefined ? current.display_name : parseOptionalName(payload.display_name);
   const isActive =
@@ -384,15 +372,11 @@ export function updateMaster(id, body) {
   const portraitPath =
     payload.portrait_path === undefined
       ? current.portrait_path
-      : payload.portrait_path == null || payload.portrait_path === ""
-        ? null
-        : String(payload.portrait_path);
+      : parseOptionalText(payload.portrait_path, "portrait_path", { max: 500 });
   const coverPath =
     payload.cover_path === undefined
       ? current.cover_path
-      : payload.cover_path == null || payload.cover_path === ""
-        ? null
-        : String(payload.cover_path);
+      : parseOptionalText(payload.cover_path, "cover_path", { max: 500 });
   const serviceIds = payload.service_ids == null ? null : parseServiceIds(payload.service_ids);
   const schedule = parseSchedule(payload.schedule);
 

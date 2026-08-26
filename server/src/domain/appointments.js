@@ -7,7 +7,13 @@ import { consumeHoldForAppointment } from "./holds.js";
 import { getStudioSettings } from "./settings.js";
 import { nowUtcIso } from "./time.js";
 import { parseId, parseOptionalToken, parseUtcInstant, requireBodyObject } from "./validate.js";
-import { resolveOverlapOverride } from "../http/config.js";
+import {
+  ROLE_ADMINISTRATOR,
+  ROLE_CLIENT,
+  ROLE_MASTER,
+  hasRole,
+  resolveOverlapOverride,
+} from "./roles.js";
 
 const ACTIVE_STATUSES = new Set(["pending_prepayment", "confirmed", "rescheduled"]);
 const HISTORY_STATUSES = new Set(["cancelled", "expired"]);
@@ -127,6 +133,36 @@ function assertOwner(appointment, clientId) {
   }
 }
 
+function canViewAppointment(appointment, actor) {
+  if (hasRole(actor, ROLE_ADMINISTRATOR)) {
+    return true;
+  }
+  if (hasRole(actor, ROLE_CLIENT) && appointment.client_id === actor.id) {
+    return true;
+  }
+  if (hasRole(actor, ROLE_MASTER) && actor.master_id && appointment.master_id === actor.master_id) {
+    return true;
+  }
+  return false;
+}
+
+function assertCanView(appointment, actor) {
+  if (!canViewAppointment(appointment, actor)) {
+    throw new HttpError(403, "FORBIDDEN", "Это чужая запись");
+  }
+}
+
+function includeClientFor(actor) {
+  return hasRole(actor, ROLE_ADMINISTRATOR) || hasRole(actor, ROLE_MASTER);
+}
+
+function appointmentVisibility(actor) {
+  const seeAll = hasRole(actor, ROLE_ADMINISTRATOR);
+  const ownClient = hasRole(actor, ROLE_CLIENT);
+  const ownMaster = hasRole(actor, ROLE_MASTER) && actor.master_id != null;
+  return { seeAll, ownClient, ownMaster, masterId: actor.master_id ?? null };
+}
+
 /** Единственный INSERT в appointments / appointment_services. */
 export function insertAppointment(db, spec) {
   const now = spec.now ?? nowUtcIso();
@@ -224,13 +260,13 @@ function overlapFromHold(db, holdToken) {
   });
 }
 
-export function createAppointmentFromHold(body, clientId, actorEmail = null) {
+export function createAppointmentFromHold(body, clientId, actor = null) {
   const payload = requireBodyObject(body);
   const holdToken = parseOptionalToken(payload.hold_token);
   if (!holdToken) {
     throw new HttpError(400, "VALIDATION_ERROR", "Укажите hold_token");
   }
-  const overlapOverride = resolveOverlapOverride(actorEmail, payload.overlap_override);
+  const overlapOverride = resolveOverlapOverride(actor, payload.overlap_override);
   const db = getDb();
 
   try {
@@ -283,30 +319,65 @@ function matchesScope(appointment, scope, nowIso) {
   throw new HttpError(400, "VALIDATION_ERROR", "scope должен быть active или history");
 }
 
-export function listOwnAppointments(clientId, scope) {
+function listAppointmentsForActor(actor, scope) {
   const db = getDb();
   expireStaleAppointments(db);
   const now = nowUtcIso();
-  const rows = db
-    .prepare(
-      `
-      SELECT * FROM appointments
-      WHERE client_id = ?
-      ORDER BY starts_at
-      `,
-    )
-    .all(clientId);
+  const visibility = appointmentVisibility(actor);
+  if (!visibility.seeAll && !visibility.ownClient && !visibility.ownMaster) {
+    throw new HttpError(403, "FORBIDDEN", "Недостаточно прав");
+  }
+
+  let rows;
+  if (visibility.seeAll) {
+    rows = db.prepare("SELECT * FROM appointments ORDER BY starts_at").all();
+  } else if (visibility.ownClient && visibility.ownMaster) {
+    rows = db
+      .prepare(
+        `
+        SELECT * FROM appointments
+        WHERE client_id = ? OR master_id = ?
+        ORDER BY starts_at
+        `,
+      )
+      .all(actor.id, visibility.masterId);
+  } else if (visibility.ownMaster) {
+    rows = db
+      .prepare(
+        `
+        SELECT * FROM appointments
+        WHERE master_id = ?
+        ORDER BY starts_at
+        `,
+      )
+      .all(visibility.masterId);
+  } else {
+    rows = db
+      .prepare(
+        `
+        SELECT * FROM appointments
+        WHERE client_id = ?
+        ORDER BY starts_at
+        `,
+      )
+      .all(actor.id);
+  }
+
   return rows
     .filter((row) => matchesScope(row, scope, now))
-    .map((row) => serializeAppointment(db, row));
+    .map((row) => serializeAppointment(db, row, { includeClient: includeClientFor(actor) }));
 }
 
-export function getOwnAppointment(id, clientId) {
+export function listOwnAppointments(actor, scope) {
+  return listAppointmentsForActor(actor, scope);
+}
+
+export function getOwnAppointment(id, actor) {
   const db = getDb();
   expireStaleAppointments(db);
   const appointment = loadAppointment(db, id);
-  assertOwner(appointment, clientId);
-  return serializeAppointment(db, appointment);
+  assertCanView(appointment, actor);
+  return serializeAppointment(db, appointment, { includeClient: includeClientFor(actor) });
 }
 
 export function cancelOwnAppointment(id, clientId) {
@@ -329,11 +400,11 @@ export function cancelOwnAppointment(id, clientId) {
   });
 }
 
-export function rescheduleOwnAppointment(id, clientId, body, actorEmail = null) {
+export function rescheduleOwnAppointment(id, clientId, body, actor = null) {
   const payload = requireBodyObject(body);
   const startsAt = parseUtcInstant(payload.starts_at);
   const masterId = payload.master_id == null ? null : parseId(payload.master_id, "master_id");
-  const overlapOverride = resolveOverlapOverride(actorEmail, payload.overlap_override);
+  const overlapOverride = resolveOverlapOverride(actor, payload.overlap_override);
   const db = getDb();
 
   try {

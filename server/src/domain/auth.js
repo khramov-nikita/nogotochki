@@ -1,13 +1,11 @@
 import crypto from "node:crypto";
-import bcrypt from "bcryptjs";
 import { getDb, runInTransaction } from "../db/connection.js";
-import { isAdminEmail } from "../http/config.js";
 import { HttpError, isUniqueConstraint } from "../http/errors.js";
+import { hashPassword, verifyPassword } from "./password.js";
+import { ROLE_ADMINISTRATOR, ROLE_CLIENT, assignRole, attachActor } from "./roles.js";
 import { nowUtcIso } from "./time.js";
 import { parseEmail, parseOptionalName, parseOptionalToken, parsePassword, requireBodyObject } from "./validate.js";
 import { attachHoldToClient } from "./holds.js";
-
-const BCRYPT_ROUNDS = 10;
 
 export function hashToken(token) {
   return crypto.createHash("sha256").update(token).digest("hex");
@@ -18,11 +16,13 @@ export function createToken() {
 }
 
 export function publicClient(row) {
+  const roles = Array.isArray(row.roles) ? row.roles : [];
   return {
     id: row.id,
     email: row.email,
     display_name: row.display_name || null,
-    is_admin: isAdminEmail(row.email),
+    roles,
+    is_admin: roles.includes(ROLE_ADMINISTRATOR),
   };
 }
 
@@ -45,7 +45,7 @@ export function findSessionClient(token) {
   if (!row || row.expires_at <= now) {
     return null;
   }
-  return row;
+  return attachActor(db, row);
 }
 
 function createSession(db, clientId, sessionDays) {
@@ -62,10 +62,11 @@ function createSession(db, clientId, sessionDays) {
 }
 
 function loadClientById(db, id) {
-  return db.prepare("SELECT id, email, display_name FROM clients WHERE id = ?").get(id);
+  const row = db.prepare("SELECT id, email, display_name FROM clients WHERE id = ?").get(id);
+  return attachActor(db, row);
 }
 
-export function registerClient(body, sessionDays) {
+export async function registerClient(body, sessionDays) {
   const payload = requireBodyObject(body);
   const email = parseEmail(payload.email);
   const password = parsePassword(payload.password);
@@ -77,7 +78,7 @@ export function registerClient(body, sessionDays) {
   const holdToken = parseOptionalToken(payload.hold_token);
   const db = getDb();
   const now = nowUtcIso();
-  const passwordHash = bcrypt.hashSync(password, BCRYPT_ROUNDS);
+  const passwordHash = await hashPassword(password);
 
   try {
     return runInTransaction(db, () => {
@@ -90,6 +91,7 @@ export function registerClient(body, sessionDays) {
         )
         .run(email, passwordHash, displayName, now, now);
       const clientId = Number(result.lastInsertRowid);
+      assignRole(db, clientId, ROLE_CLIENT, now);
       attachHoldToClient(db, holdToken, clientId);
       const session = createSession(db, clientId, sessionDays);
       return { client: publicClient(loadClientById(db, clientId)), session };
@@ -102,7 +104,7 @@ export function registerClient(body, sessionDays) {
   }
 }
 
-export function loginClient(body, sessionDays) {
+export async function loginClient(body, sessionDays) {
   const payload = requireBodyObject(body);
   const email = parseEmail(payload.email);
   const password = parsePassword(payload.password);
@@ -112,15 +114,17 @@ export function loginClient(body, sessionDays) {
     .prepare("SELECT id, email, display_name, password_hash FROM clients WHERE email = ?")
     .get(email);
 
-  if (!row || !bcrypt.compareSync(password, row.password_hash)) {
+  const passwordOk = row ? await verifyPassword(password, row.password_hash) : false;
+  if (!row || !passwordOk) {
     throw new HttpError(401, "UNAUTHORIZED", "Неверный email или пароль");
   }
 
   return runInTransaction(db, () => {
     attachHoldToClient(db, holdToken, row.id);
     const session = createSession(db, row.id, sessionDays);
+    const client = loadClientById(db, row.id);
     return {
-      client: publicClient({ id: row.id, email: row.email, display_name: row.display_name }),
+      client: publicClient(client),
       session,
     };
   });
