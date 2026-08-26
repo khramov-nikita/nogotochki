@@ -1,0 +1,21 @@
+{
+  "name": "nogotochki-server",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.16"
+  },
+  "scripts": {
+    "migrate": "node src/db/migrate.js",
+    "seed": "node src/db/seed.js",
+    "seed:dev": "node src/db/seed-dev.js",
+    "db:setup": "node src/db/migrate.js && node src/db/seed.js",
+    "db:dev": "node src/db/migrate.js && node src/db/seed-dev.js",
+    "db:reset": "node src/db/reset.js",
+    "db:schema": "node src/db/inspect.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.2",
+    "dotenv": "^16.6.1"
+  }
+}
