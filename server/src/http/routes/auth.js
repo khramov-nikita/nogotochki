@@ -1,0 +1,40 @@
+import express from "express";
+import { loginClient, logoutClient, publicClient, registerClient } from "../../domain/auth.js";
+import { getConfig } from "../config.js";
+import { clearSessionCookie, setSessionCookie } from "../cookies.js";
+import { requireAuth } from "../middleware/auth.js";
+
+const router = express.Router();
+
+function sendSession(req, res, status, result) {
+  const { sessionDays, nodeEnv } = getConfig();
+  const secure = nodeEnv === "production";
+  setSessionCookie(res, result.session.token, sessionDays * 24 * 60 * 60, secure);
+  res.status(status).json({
+    client: result.client,
+    token: result.session.token,
+    expires_at: result.session.expires_at,
+  });
+}
+
+router.post("/register", (req, res) => {
+  const result = registerClient(req.body, getConfig().sessionDays);
+  sendSession(req, res, 201, result);
+});
+
+router.post("/login", (req, res) => {
+  const result = loginClient(req.body, getConfig().sessionDays);
+  sendSession(req, res, 200, result);
+});
+
+router.post("/logout", (req, res) => {
+  logoutClient(req.sessionToken);
+  clearSessionCookie(res, getConfig().nodeEnv === "production");
+  res.status(200).json({ ok: true });
+});
+
+router.get("/me", requireAuth, (req, res) => {
+  res.json({ client: publicClient(req.client) });
+});
+
+export default router;

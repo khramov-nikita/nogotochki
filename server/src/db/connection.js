@@ -48,6 +48,8 @@ export function getDb() {
 }
 
 export function runInTransaction(database, fn) {
+  // IMMEDIATE берёт RESERVED сразу, а не на первой записи (DEFERRED).
+  // Иначе два клиента оба читают «свободно» и оба вставляют.
   database.exec("BEGIN IMMEDIATE");
   try {
     const result = fn();

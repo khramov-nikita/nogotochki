@@ -1,28 +1,29 @@
 import bcrypt from "bcryptjs";
 import { isMainModule } from "./cli.js";
 import { DATABASE_PATH, closeDb, getDb, runInTransaction } from "./connection.js";
+import { insertAppointment } from "../domain/appointments.js";
 
 const BCRYPT_ROUNDS = 10;
 const TIMEZONE = "Europe/Moscow";
 
 const TEST_USERS = [
   {
+    key: "admin",
     email: "admin@nogotochki.test",
     password: "DevAdmin123!",
     display_name: "Администратор",
-    role: "admin",
   },
   {
+    key: "master",
     email: "master@nogotochki.test",
     password: "DevMaster123!",
     display_name: "Мастер",
-    role: "master",
   },
   {
+    key: "client",
     email: "client@nogotochki.test",
     password: "DevClient123!",
     display_name: "Клиент",
-    role: "client",
   },
 ];
 
@@ -80,13 +81,6 @@ function addMinutesIso(iso, minutes) {
 function assertDevEnvironment() {
   if (process.env.NODE_ENV === "production") {
     throw new Error("seed:dev нельзя запускать при NODE_ENV=production");
-  }
-}
-
-function assertRoleColumn(db) {
-  const columns = db.prepare("PRAGMA table_info(clients)").all();
-  if (!columns.some((column) => column.name === "role")) {
-    throw new Error("Нет clients.role. Сначала выполните npm run migrate.");
   }
 }
 
@@ -243,12 +237,11 @@ function seedMasterSchedule(db, now) {
 function upsertUsers(db, now) {
   const upsert = db.prepare(
     `
-    INSERT INTO clients (email, password_hash, display_name, role, created_at, updated_at)
-    VALUES (@email, @password_hash, @display_name, @role, @created_at, @updated_at)
+    INSERT INTO clients (email, password_hash, display_name, created_at, updated_at)
+    VALUES (@email, @password_hash, @display_name, @created_at, @updated_at)
     ON CONFLICT(email) DO UPDATE SET
       password_hash = excluded.password_hash,
       display_name = excluded.display_name,
-      role = excluded.role,
       updated_at = excluded.updated_at
     `,
   );
@@ -260,11 +253,10 @@ function upsertUsers(db, now) {
       email: user.email,
       password_hash,
       display_name: user.display_name,
-      role: user.role,
       created_at: now,
       updated_at: now,
     });
-    ids[user.role] = db.prepare("SELECT id FROM clients WHERE email = ?").get(user.email).id;
+    ids[user.key] = db.prepare("SELECT id FROM clients WHERE email = ?").get(user.email).id;
   }
   return ids;
 }
@@ -283,38 +275,15 @@ function upsertAppointment(db, now, spec) {
     return existing.id;
   }
 
-  const result = db
-    .prepare(
-      `
-      INSERT INTO appointments (
-        client_id, master_id, starts_at, ends_at, status,
-        created_at, updated_at, confirmed_at, cancelled_at, rescheduled_at, expired_at
-      ) VALUES (
-        @client_id, @master_id, @starts_at, @ends_at, @status,
-        @created_at, @updated_at, @confirmed_at, NULL, NULL, NULL
-      )
-      `,
-    )
-    .run({
-      client_id: spec.client_id,
-      master_id: spec.master_id,
-      starts_at: spec.starts_at,
-      ends_at: spec.ends_at,
-      status: spec.status,
-      created_at: now,
-      updated_at: now,
-      confirmed_at: spec.status === "confirmed" ? now : null,
-    });
-
-  const appointmentId = Number(result.lastInsertRowid);
-  db.prepare(
-    `
-    INSERT OR IGNORE INTO appointment_services (appointment_id, service_id, sort_order)
-    VALUES (?, ?, 1)
-    `,
-  ).run(appointmentId, spec.service_id);
-
-  return appointmentId;
+  return insertAppointment(db, {
+    clientId: spec.client_id,
+    masterId: spec.master_id,
+    startsAt: spec.starts_at,
+    endsAt: spec.ends_at,
+    status: spec.status,
+    now,
+    serviceId: spec.service_id,
+  });
 }
 
 function seedAppointments(db, now, clientId) {
@@ -367,7 +336,7 @@ function printSummary(db) {
   const users = db
     .prepare(
       `
-      SELECT id, email, role, display_name,
+      SELECT id, email, display_name,
              CASE WHEN password_hash LIKE '$2%' THEN 'bcrypt' ELSE 'other' END AS hash_kind,
              length(password_hash) AS hash_length
       FROM clients
@@ -435,8 +404,24 @@ function printSummary(db) {
     )
     .get();
 
+  const countTables = [
+    "clients",
+    "services",
+    "masters",
+    "master_schedule",
+    "appointments",
+    "appointment_services",
+  ];
+  const rowCounts = Object.fromEntries(
+    countTables.map((table) => [
+      table,
+      db.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get().n,
+    ]),
+  );
+
   console.log("seed:dev complete");
   console.log(`database: ${DATABASE_PATH}`);
+  console.log("row_counts", rowCounts);
   console.log("users", users);
   console.log("dev passwords (not stored)", plaintextPasswords);
   console.log("plaintext passwords in db", storedPlain.n);
@@ -449,7 +434,6 @@ function printSummary(db) {
 export function seedDev() {
   assertDevEnvironment();
   const db = getDb();
-  assertRoleColumn(db);
   const now = nowUtc();
 
   runInTransaction(db, () => {
