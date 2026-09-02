@@ -15,6 +15,7 @@
     <link rel="stylesheet" href="auth.css" />
     <link rel="stylesheet" href="booking.css" />
     <link rel="stylesheet" href="cabinet.css" />
+    <link rel="stylesheet" href="responsive.css" />
   </head>
   <body>
     <div id="site-header"></div>
@@ -35,7 +36,7 @@
         <p id="details-rules" hidden>
           <a class="cabinet-rules-link" href="cabinet-rules.html">Правила отмены и переноса</a>
         </p>
-        <div class="cabinet-cta" id="details-cta" hidden>
+        <div class="booking-dock cabinet-cta" id="details-cta" hidden>
           <a class="button button--ghost button--large" href="cabinet.html">Назад</a>
           <div class="cabinet-cta-actions" id="details-actions"></div>
         </div>
@@ -50,10 +51,12 @@
             <span class="icon icon--close" aria-hidden="true"></span>
           </button>
         </div>
-        <p class="body-medium" id="cancel-body">Слот освободится. Предоплату уточняет студия по своим правилам.</p>
-        <div class="banner banner--warning" id="cancel-warning" hidden>
-          <span class="icon icon--alert" aria-hidden="true"></span>
-          <p class="body-small">До визита осталось мало времени. Отменить запись уже нельзя.</p>
+        <div class="cabinet-modal__body">
+          <p class="body-medium" id="cancel-body">Слот освободится. Предоплату уточняет студия по своим правилам.</p>
+          <div class="banner banner--warning" id="cancel-warning" hidden>
+            <span class="icon icon--alert" aria-hidden="true"></span>
+            <p class="body-small">До визита осталось мало времени. Отменить запись уже нельзя.</p>
+          </div>
         </div>
         <div class="cabinet-modal__actions">
           <button class="button button--ghost button--large" type="button" id="cancel-dismiss">Закрыть</button>
