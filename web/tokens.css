@@ -1,0 +1,138 @@
+/* Токены с Figma Cover & Foundations (PN8kfs5KAmLwwqZIKmnAOG).
+   Только коллекция Color (Light), Typography, Spacing, Radius и текстовые стили.
+   Примитивы (pink/100, ink/600) сюда не выносим. */
+
+:root {
+  /* Фон */
+  --color-bg-canvas: #ffffff;
+  --color-bg-subtle: #f5f3f0;
+  --color-bg-inverse: #000000;
+  --color-bg-accent: #f4d7da;
+  --color-bg-accent-soft: #fee5d8;
+  --color-bg-overlay: #00000066;
+  --color-bg-hover-ghost: #f5f3f0;
+
+  /* Текст */
+  --color-text-primary: #000000;
+  --color-text-secondary: #4a4a4a;
+  --color-text-muted: #7a7a7a;
+  --color-text-inverse: #ffffff;
+  --color-text-link: #000000;
+  --color-text-danger: #b42318;
+  --color-text-success: #2f6b4f;
+
+  /* Граница */
+  --color-border-default: #000000;
+  --color-border-subtle: #c8c4c0;
+  --color-border-focus: #000000;
+  --color-border-danger: #b42318;
+  --color-border-disabled: #c8c4c0;
+
+  /* Кнопка */
+  --color-fill-primary: #000000;
+  --color-fill-primary-text: #ffffff;
+  --color-fill-ghost: #ffffff00;
+  --color-fill-disabled: #efebe6;
+  --color-fill-hover: #1a1a1a;
+
+  /* Слот */
+  --color-fill-slot-available: #ffffff;
+  --color-fill-slot-selected: #000000;
+  --color-fill-slot-unavailable: #efebe6;
+  --color-fill-slot-reserved: #fee5d8;
+
+  /* Статус */
+  --color-status-pending: #b5812a;
+  --color-status-confirmed: #2f6b4f;
+  --color-status-cancelled: #7a7a7a;
+  --color-status-expired: #b42318;
+
+  /* Шрифт: семейства и имена начертаний как в Figma (не числовой weight) */
+  --font-heading: "Playfair Display";
+  --font-body: Inter;
+  --font-weight-regular: Regular;
+  --font-weight-medium: Medium;
+  --font-weight-semibold-sans: "Semi Bold";
+  --font-weight-semibold-serif: SemiBold;
+  --font-weight-bold: Bold;
+
+  /* Display/Large */
+  --font-size-display-large: 64px;
+  --line-height-display-large: 72px;
+  --letter-spacing-display-large: -1%;
+
+  /* Display/Medium */
+  --font-size-display-medium: 48px;
+  --line-height-display-medium: 56px;
+  --letter-spacing-display-medium: -1%;
+
+  /* Heading/1 */
+  --font-size-heading-1: 40px;
+  --line-height-heading-1: 48px;
+
+  /* Heading/2 */
+  --font-size-heading-2: 32px;
+  --line-height-heading-2: 40px;
+
+  /* Heading/3 */
+  --font-size-heading-3: 24px;
+  --line-height-heading-3: 32px;
+
+  /* Heading/4 */
+  --font-size-heading-4: 18px;
+  --line-height-heading-4: 26px;
+
+  /* Body/Large */
+  --font-size-body-large: 18px;
+  --line-height-body-large: 28px;
+
+  /* Body/Medium */
+  --font-size-body-medium: 16px;
+  --line-height-body-medium: 24px;
+
+  /* Body/Small */
+  --font-size-body-small: 14px;
+  --line-height-body-small: 20px;
+
+  /* Label/Caps — в файле textCase ORIGINAL, uppercase в токен не пишем */
+  --font-size-label-caps: 12px;
+  --line-height-label-caps: 16px;
+  --letter-spacing-label-caps: 8%;
+
+  /* Label/UI */
+  --font-size-label-ui: 14px;
+  --line-height-label-ui: 20px;
+
+  /* Label/Button */
+  --font-size-label-button: 14px;
+  --line-height-label-button: 20px;
+  --letter-spacing-label-button: 2%;
+
+  /* Price */
+  --font-size-price: 16px;
+  --line-height-price: 24px;
+
+  /* Meta */
+  --font-size-meta: 13px;
+  --line-height-meta: 18px;
+
+  /* Отступы */
+  --spacing-2: 2px;
+  --spacing-4: 4px;
+  --spacing-8: 8px;
+  --spacing-12: 12px;
+  --spacing-16: 16px;
+  --spacing-24: 24px;
+  --spacing-32: 32px;
+  --spacing-40: 40px;
+  --spacing-48: 48px;
+  --spacing-64: 64px;
+  --spacing-80: 80px;
+  --spacing-96: 96px;
+  --spacing-128: 128px;
+
+  /* Скругления. radius/full есть в системе; пилюли в макете не использовать */
+  --radius-none: 0;
+  --radius-hair: 2px;
+  --radius-full: 999px;
+}
