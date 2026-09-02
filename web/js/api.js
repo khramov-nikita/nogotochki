@@ -48,29 +48,101 @@ export async function getServices() {
   return body.services || [];
 }
 
-export async function getMasters() {
-  const body = await api("/api/masters");
+export async function getMasters(serviceIds) {
+  const ids = Array.isArray(serviceIds)
+    ? serviceIds.filter((id) => Number.isInteger(id) && id > 0)
+    : [];
+  const path = ids.length ? `/api/masters?service_ids=${ids.join(",")}` : "/api/masters";
+  const body = await api(path);
   return body.masters || [];
 }
 
+function positiveIds(ids) {
+  return Array.isArray(ids) ? ids.filter((id) => Number.isInteger(id) && id > 0) : [];
+}
+
+export async function getAvailability(masterId, { date, serviceIds, excludeHoldToken, excludeAppointmentId } = {}) {
+  const params = new URLSearchParams();
+  if (date) {
+    params.set("date", date);
+  }
+  const ids = positiveIds(serviceIds);
+  if (ids.length) {
+    params.set("service_ids", ids.join(","));
+  }
+  if (excludeHoldToken) {
+    params.set("exclude_hold_token", excludeHoldToken);
+  }
+  if (excludeAppointmentId) {
+    params.set("exclude_appointment_id", String(excludeAppointmentId));
+  }
+  return api(`/api/masters/${masterId}/availability?${params}`);
+}
+
+export function createHold(payload) {
+  return api("/api/holds", { method: "POST", body: payload });
+}
+
+export function getHold(token) {
+  return api(`/api/holds/${encodeURIComponent(token)}`);
+}
+
+export function deleteHold(token) {
+  return api(`/api/holds/${encodeURIComponent(token)}`, { method: "DELETE" });
+}
+
 export function login(credentials) {
-  return api("/api/auth/login", {
-    method: "POST",
-    body: {
-      email: credentials.email,
-      password: credentials.password,
-    },
-  });
+  const body = {
+    email: credentials.email,
+    password: credentials.password,
+  };
+  if (credentials.hold_token) {
+    body.hold_token = credentials.hold_token;
+  }
+  return api("/api/auth/login", { method: "POST", body });
 }
 
 export function register(credentials) {
-  return api("/api/auth/register", {
+  const body = {
+    email: credentials.email,
+    password: credentials.password,
+    password_confirmation: credentials.password_confirmation,
+  };
+  if (credentials.hold_token) {
+    body.hold_token = credentials.hold_token;
+  }
+  return api("/api/auth/register", { method: "POST", body });
+}
+
+export function createAppointment(holdToken) {
+  return api("/api/appointments", {
     method: "POST",
-    body: {
-      email: credentials.email,
-      password: credentials.password,
-      password_confirmation: credentials.password_confirmation,
-    },
+    body: { hold_token: holdToken },
+  });
+}
+
+export function getAppointment(id) {
+  return api(`/api/appointments/${id}`);
+}
+
+export async function listAppointments(scope) {
+  const params = new URLSearchParams();
+  if (scope) {
+    params.set("scope", scope);
+  }
+  const query = params.toString();
+  const body = await api(query ? `/api/appointments?${query}` : "/api/appointments");
+  return body.appointments || [];
+}
+
+export function cancelAppointment(id) {
+  return api(`/api/appointments/${id}/cancel`, { method: "POST" });
+}
+
+export function rescheduleAppointment(id, payload) {
+  return api(`/api/appointments/${id}/reschedule`, {
+    method: "POST",
+    body: payload,
   });
 }
 

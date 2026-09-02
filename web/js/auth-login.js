@@ -1,4 +1,5 @@
 import { login } from "./api.js";
+import { loadDraft, preserveNextOnLinks, safeNextPage } from "./store.js";
 import {
   applyServerError,
   bindPasswordToggles,
@@ -13,6 +14,7 @@ const form = document.getElementById("login-form");
 const alertEl = document.getElementById("form-alert");
 
 bindPasswordToggles(form);
+preserveNextOnLinks();
 
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -36,11 +38,16 @@ form.addEventListener("submit", async (event) => {
   }
 
   try {
-    await login({
+    const payload = {
       email: values.email.trim(),
       password: values.password,
-    });
-    window.location.href = "cabinet.html";
+    };
+    const holdToken = loadDraft().holdToken;
+    if (holdToken) {
+      payload.hold_token = holdToken;
+    }
+    await login(payload);
+    window.location.href = safeNextPage();
   } catch (error) {
     applyServerError(form, alertEl, error);
   }

@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Кабинет — Ноготочки</title>
+    <title>Мастер — запись — Ноготочки</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -14,31 +14,37 @@
     <link rel="stylesheet" href="landing.css" />
     <link rel="stylesheet" href="auth.css" />
     <link rel="stylesheet" href="booking.css" />
-    <link rel="stylesheet" href="cabinet.css" />
   </head>
   <body>
     <div id="site-header"></div>
 
     <main class="booking-main">
       <div class="booking-column">
+        <div id="booking-stepper"></div>
+
         <div class="booking-intro">
-          <h1 class="heading-1">Кабинет</h1>
-          <p class="body-medium" id="cabinet-intro">
-            Предстоящие визиты. Отмена и перенос — в деталях записи, звонить не нужно.
+          <h1 class="heading-1">Мастер</h1>
+          <p class="body-medium" id="master-intro">
+            Выберите мастера под выбранные услуги. Если вы пришли с карточки мастера, он уже отмечен — можно выбрать другого.
           </p>
         </div>
 
-        <div class="cabinet-tabs" role="tablist" aria-label="Записи">
-          <button class="cabinet-tab cabinet-tab--active" type="button" role="tab" id="tab-active" aria-selected="true" data-tab="active">
-            Активные
-          </button>
-          <button class="cabinet-tab" type="button" role="tab" id="tab-history" aria-selected="false" data-tab="history">
-            История
-          </button>
+        <p class="error" id="masters-error"></p>
+        <div class="banner banner--warning" id="no-master-banner" hidden>
+          <span class="icon icon--alert" aria-hidden="true"></span>
+          <p class="body-small">
+            Выбранный набор услуг не может принять ни один мастер. Вернитесь и измените услуги на шаге 1.
+          </p>
         </div>
+        <div class="booking-list" id="masters-list"></div>
 
-        <p class="error" id="cabinet-error"></p>
-        <div id="cabinet-content"></div>
+        <div class="booking-cta">
+          <a class="button button--ghost button--large" id="back-btn" href="booking.html">Назад</a>
+          <div class="booking-cta-next">
+            <p class="meta booking-hint" id="next-hint"></p>
+            <button class="button button--primary button--large" type="button" id="next-btn" disabled>Далее</button>
+          </div>
+        </div>
       </div>
     </main>
 
@@ -74,6 +80,6 @@
     </footer>
 
     <script type="module" src="js/header.js"></script>
-    <script type="module" src="js/cabinet.js"></script>
+    <script type="module" src="js/booking-master.js"></script>
   </body>
 </html>

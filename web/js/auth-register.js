@@ -1,4 +1,5 @@
 import { register } from "./api.js";
+import { loadDraft, preserveNextOnLinks, safeNextPage } from "./store.js";
 import {
   applyServerError,
   bindPasswordToggles,
@@ -15,6 +16,7 @@ const form = document.getElementById("register-form");
 const alertEl = document.getElementById("form-alert");
 
 bindPasswordToggles(form);
+preserveNextOnLinks();
 
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -49,12 +51,17 @@ form.addEventListener("submit", async (event) => {
   }
 
   try {
-    await register({
+    const payload = {
       email: values.email.trim(),
       password: values.password,
       password_confirmation: values.password_confirmation,
-    });
-    window.location.href = "cabinet.html";
+    };
+    const holdToken = loadDraft().holdToken;
+    if (holdToken) {
+      payload.hold_token = holdToken;
+    }
+    await register(payload);
+    window.location.href = safeNextPage();
   } catch (error) {
     applyServerError(form, alertEl, error);
   }

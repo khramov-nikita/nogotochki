@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Дата и время — запись — Ноготочки</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Playfair+Display:wght@600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="tokens.css" />
+    <link rel="stylesheet" href="landing.css" />
+    <link rel="stylesheet" href="auth.css" />
+    <link rel="stylesheet" href="booking.css" />
+  </head>
+  <body>
+    <div id="site-header"></div>
+
+    <main class="booking-main">
+      <div class="booking-column">
+        <div id="booking-stepper"></div>
+
+        <div class="booking-intro">
+          <h1 class="heading-1">Дата и время</h1>
+          <p class="body-medium" id="datetime-intro">
+            Выберите день и свободное время под длительность визита. Слот резервируется на ограниченное время. Предоплату принимает студия, на сайте оплаты нет.
+          </p>
+        </div>
+
+        <p class="error" id="datetime-error"></p>
+
+        <div class="booking-calendar" id="calendar" hidden>
+          <div class="booking-calendar-head">
+            <button class="calendar-nav" type="button" id="month-prev" aria-label="Предыдущий месяц">
+              <span class="icon icon--chevron-left" aria-hidden="true"></span>
+            </button>
+            <p class="heading-4 booking-calendar-title" id="month-title"></p>
+            <button class="calendar-nav" type="button" id="month-next" aria-label="Следующий месяц">
+              <span class="icon icon--chevron-right" aria-hidden="true"></span>
+            </button>
+          </div>
+          <div class="booking-calendar-week" aria-hidden="true">
+            <span class="meta booking-calendar-weekday">Пн</span>
+            <span class="meta booking-calendar-weekday">Вт</span>
+            <span class="meta booking-calendar-weekday">Ср</span>
+            <span class="meta booking-calendar-weekday">Чт</span>
+            <span class="meta booking-calendar-weekday">Пт</span>
+            <span class="meta booking-calendar-weekday">Сб</span>
+            <span class="meta booking-calendar-weekday">Вс</span>
+          </div>
+          <div class="booking-calendar-grid" id="calendar-grid"></div>
+        </div>
+
+        <div class="booking-slots" id="slots-block"></div>
+
+        <div class="booking-cta">
+          <a class="button button--ghost button--large" href="booking-master.html">Назад</a>
+          <div class="booking-cta-next">
+            <p class="meta booking-hint" id="next-hint"></p>
+            <button class="button button--primary button--large" type="button" id="next-btn" disabled>Далее</button>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-cols">
+        <div class="footer-col">
+          <p class="label-caps">Студия</p>
+          <a href="index.html#how">О нас</a>
+          <a href="catalog.html">Услуги</a>
+          <a href="index.html#masters">Мастера</a>
+        </div>
+        <div class="footer-col">
+          <p class="label-caps">Запись</p>
+          <a href="booking.html">Записаться</a>
+          <a href="catalog.html">Подарочный сертификат</a>
+          <a href="index.html#faq">Правила</a>
+        </div>
+        <div class="footer-col">
+          <p class="label-caps">Кабинет</p>
+          <a href="cabinet.html">Мои записи</a>
+          <a href="cabinet.html">Профиль</a>
+          <a href="cabinet.html">Уведомления</a>
+        </div>
+        <div class="footer-col">
+          <p class="label-caps">Контакты</p>
+          <p>Центр города</p>
+          <p>Предварительная запись</p>
+        </div>
+      </div>
+      <p class="footer-copy">
+        © Ноготочки. Работаем с 2019 · <a href="privacy.html">Политика конфиденциальности</a>
+      </p>
+    </footer>
+
+    <script type="module" src="js/header.js"></script>
+    <script type="module" src="js/booking-datetime.js"></script>
+  </body>
+</html>

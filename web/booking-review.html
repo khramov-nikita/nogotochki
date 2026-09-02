@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Кабинет — Ноготочки</title>
+    <title>Проверка записи — Ноготочки</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -14,31 +14,37 @@
     <link rel="stylesheet" href="landing.css" />
     <link rel="stylesheet" href="auth.css" />
     <link rel="stylesheet" href="booking.css" />
-    <link rel="stylesheet" href="cabinet.css" />
   </head>
   <body>
     <div id="site-header"></div>
 
     <main class="booking-main">
       <div class="booking-column">
+        <div id="booking-stepper"></div>
+
         <div class="booking-intro">
-          <h1 class="heading-1">Кабинет</h1>
-          <p class="body-medium" id="cabinet-intro">
-            Предстоящие визиты. Отмена и перенос — в деталях записи, звонить не нужно.
+          <h1 class="heading-1">Проверка записи</h1>
+          <p class="body-medium" id="review-intro">
+            Состав визита, мастер и слот. Чтобы подтвердить запись, войдите или зарегистрируйтесь. Предоплату принимает студия, на сайте оплаты нет.
           </p>
         </div>
 
-        <div class="cabinet-tabs" role="tablist" aria-label="Записи">
-          <button class="cabinet-tab cabinet-tab--active" type="button" role="tab" id="tab-active" aria-selected="true" data-tab="active">
-            Активные
-          </button>
-          <button class="cabinet-tab" type="button" role="tab" id="tab-history" aria-selected="false" data-tab="history">
-            История
-          </button>
+        <p class="error" id="review-error"></p>
+        <div id="review-banner"></div>
+        <div class="booking-taken" id="review-taken" hidden></div>
+        <div id="review-summary"></div>
+
+        <div class="booking-timer" id="hold-timer" hidden>
+          <span class="icon icon--clock" aria-hidden="true"></span>
+          <p class="meta">Слот зарезервирован  ·  <span id="timer-value">00:00</span></p>
         </div>
 
-        <p class="error" id="cabinet-error"></p>
-        <div id="cabinet-content"></div>
+        <div class="booking-cta">
+          <a class="button button--ghost button--large" href="booking-datetime.html">Назад</a>
+          <button class="button button--primary button--large" type="button" id="confirm-btn" disabled>
+            Подтвердить запись
+          </button>
+        </div>
       </div>
     </main>
 
@@ -74,6 +80,6 @@
     </footer>
 
     <script type="module" src="js/header.js"></script>
-    <script type="module" src="js/cabinet.js"></script>
+    <script type="module" src="js/booking-review.js"></script>
   </body>
 </html>

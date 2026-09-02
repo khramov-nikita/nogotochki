@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Детали записи — Ноготочки</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Playfair+Display:wght@600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="tokens.css" />
+    <link rel="stylesheet" href="landing.css" />
+    <link rel="stylesheet" href="auth.css" />
+    <link rel="stylesheet" href="booking.css" />
+    <link rel="stylesheet" href="cabinet.css" />
+  </head>
+  <body>
+    <div id="site-header"></div>
+
+    <main class="booking-main">
+      <div class="booking-column">
+        <div class="booking-intro">
+          <h1 class="heading-1">Детали записи</h1>
+          <p class="body-medium" id="details-intro">
+            Слот зарезервирован. Предоплату принимает студия, сайт оплату не принимает.
+          </p>
+        </div>
+
+        <div class="booking-badge" id="details-badge" hidden></div>
+        <div class="cabinet-banners" id="details-banners"></div>
+        <p class="error" id="details-error"></p>
+        <div id="details-summary"></div>
+        <p id="details-rules" hidden>
+          <a class="cabinet-rules-link" href="cabinet-rules.html">Правила отмены и переноса</a>
+        </p>
+        <div class="cabinet-cta" id="details-cta" hidden>
+          <a class="button button--ghost button--large" href="cabinet.html">Назад</a>
+          <div class="cabinet-cta-actions" id="details-actions"></div>
+        </div>
+      </div>
+    </main>
+
+    <div class="cabinet-modal-overlay" id="cancel-overlay" hidden>
+      <div class="cabinet-modal" role="dialog" aria-modal="true" aria-labelledby="cancel-title">
+        <div class="cabinet-modal__head">
+          <h2 class="heading-3" id="cancel-title">Отменить запись?</h2>
+          <button class="cabinet-modal__close" type="button" id="cancel-close-icon" aria-label="Закрыть">
+            <span class="icon icon--close" aria-hidden="true"></span>
+          </button>
+        </div>
+        <p class="body-medium" id="cancel-body">Слот освободится. Предоплату уточняет студия по своим правилам.</p>
+        <div class="banner banner--warning" id="cancel-warning" hidden>
+          <span class="icon icon--alert" aria-hidden="true"></span>
+          <p class="body-small">До визита осталось мало времени. Отменить запись уже нельзя.</p>
+        </div>
+        <div class="cabinet-modal__actions">
+          <button class="button button--ghost button--large" type="button" id="cancel-dismiss">Закрыть</button>
+          <button class="button button--danger button--large" type="button" id="cancel-confirm">Отменить запись</button>
+        </div>
+      </div>
+    </div>
+
+    <footer class="footer">
+      <div class="footer-cols">
+        <div class="footer-col">
+          <p class="label-caps">Студия</p>
+          <a href="index.html#how">О нас</a>
+          <a href="catalog.html">Услуги</a>
+          <a href="index.html#masters">Мастера</a>
+        </div>
+        <div class="footer-col">
+          <p class="label-caps">Запись</p>
+          <a href="booking.html">Записаться</a>
+          <a href="catalog.html">Подарочный сертификат</a>
+          <a href="index.html#faq">Правила</a>
+        </div>
+        <div class="footer-col">
+          <p class="label-caps">Кабинет</p>
+          <a href="cabinet.html">Мои записи</a>
+          <a href="cabinet.html">Профиль</a>
+          <a href="cabinet.html">Уведомления</a>
+        </div>
+        <div class="footer-col">
+          <p class="label-caps">Контакты</p>
+          <p>Центр города</p>
+          <p>Предварительная запись</p>
+        </div>
+      </div>
+      <p class="footer-copy">
+        © Ноготочки. Работаем с 2019 · <a href="privacy.html">Политика конфиденциальности</a>
+      </p>
+    </footer>
+
+    <script type="module" src="js/header.js"></script>
+    <script type="module" src="js/cabinet-appointment.js"></script>
+  </body>
+</html>

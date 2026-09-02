@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Кабинет — Ноготочки</title>
+    <title>Запись создана — Ноготочки</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -14,31 +14,28 @@
     <link rel="stylesheet" href="landing.css" />
     <link rel="stylesheet" href="auth.css" />
     <link rel="stylesheet" href="booking.css" />
-    <link rel="stylesheet" href="cabinet.css" />
   </head>
   <body>
     <div id="site-header"></div>
 
     <main class="booking-main">
       <div class="booking-column">
+        <div id="booking-stepper"></div>
+
         <div class="booking-intro">
-          <h1 class="heading-1">Кабинет</h1>
-          <p class="body-medium" id="cabinet-intro">
-            Предстоящие визиты. Отмена и перенос — в деталях записи, звонить не нужно.
+          <h1 class="heading-1">Запись создана</h1>
+          <p class="body-medium">
+            Статус «ожидает предоплату». Предоплату принимает студия вне сайта. Точный адрес появится в кабинете, когда студия подтвердит запись.
           </p>
         </div>
 
-        <div class="cabinet-tabs" role="tablist" aria-label="Записи">
-          <button class="cabinet-tab cabinet-tab--active" type="button" role="tab" id="tab-active" aria-selected="true" data-tab="active">
-            Активные
-          </button>
-          <button class="cabinet-tab" type="button" role="tab" id="tab-history" aria-selected="false" data-tab="history">
-            История
-          </button>
-        </div>
+        <div class="booking-badge" id="done-badge" hidden></div>
+        <p class="error" id="done-error"></p>
+        <div id="done-summary"></div>
 
-        <p class="error" id="cabinet-error"></p>
-        <div id="cabinet-content"></div>
+        <div class="booking-cta booking-cta--end">
+          <a class="button button--primary button--large" href="cabinet.html">В кабинет</a>
+        </div>
       </div>
     </main>
 
@@ -74,6 +71,6 @@
     </footer>
 
     <script type="module" src="js/header.js"></script>
-    <script type="module" src="js/cabinet.js"></script>
+    <script type="module" src="js/booking-done.js"></script>
   </body>
 </html>
