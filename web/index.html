@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Ноготочки — запись в студию</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Playfair+Display:wght@600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="tokens.css" />
+    <link rel="stylesheet" href="landing.css" />
+  </head>
+  <body>
+    <header class="header" id="top">
+      <a class="logo" href="#top">Ноготочки</a>
+      <nav class="nav" aria-label="Разделы страницы">
+        <a href="#services">Услуги</a>
+        <a href="#masters">Мастера</a>
+        <a href="#how">Записаться</a>
+      </nav>
+      <a class="header-login" href="auth.html">Войти</a>
+    </header>
+
+    <section class="hero">
+      <div class="hero-split">
+        <div class="hero-copy">
+          <p class="label-caps">Студия маникюра и бровей</p>
+          <h1 class="display-medium">Запись в студию без звонков и переписки</h1>
+          <p class="body-large">
+            Выберите услуги и мастера, свободное время — за минуту, без переписки в мессенджерах.
+          </p>
+          <div class="hero-actions">
+            <a class="button button--primary button--large" href="booking.html">Записаться</a>
+            <a class="button button--ghost button--large" href="catalog.html">Все услуги</a>
+          </div>
+        </div>
+        <div class="media-frame">
+          <div class="media-frame__accent" aria-hidden="true"></div>
+          <div class="media-frame__photo">
+            <img src="assets/hero.png" alt="Покрытие гель-лаком" />
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="trust">
+      <div class="trust-item">
+        <p class="heading-3">С 2019 года</p>
+        <p class="meta">Студия в центре города</p>
+      </div>
+      <div class="trust-item">
+        <p class="heading-3">Несколько мастеров</p>
+        <p class="meta">Маникюр и брови</p>
+      </div>
+      <div class="trust-item">
+        <p class="heading-3">Более 400 клиентов</p>
+        <p class="meta">Постоянные гости студии</p>
+      </div>
+      <div class="trust-item">
+        <p class="heading-3">Только по записи</p>
+        <p class="meta">Без выезда на дом</p>
+      </div>
+    </section>
+
+    <section class="section" id="how">
+      <div class="section-header">
+        <p class="label-caps">Как это работает</p>
+        <h2 class="heading-2">Как записаться</h2>
+        <p class="body-medium">
+          Слот резервируется на ограниченное время. Предоплату принимает студия, не сайт. Отменить или перенести запись можно в личном кабинете — звонить для этого не нужно.
+        </p>
+      </div>
+      <div class="stepper" aria-label="Шаги записи">
+        <div class="step step--current"><span>1</span><span>Услуги</span></div>
+        <div class="stepper-line" aria-hidden="true"></div>
+        <div class="step"><span>2</span><span>Мастер</span></div>
+        <div class="stepper-line" aria-hidden="true"></div>
+        <div class="step"><span>3</span><span>Дата и время</span></div>
+        <div class="stepper-line" aria-hidden="true"></div>
+        <div class="step"><span>4</span><span>Проверка</span></div>
+        <div class="stepper-line" aria-hidden="true"></div>
+        <div class="step"><span>5</span><span>Готово</span></div>
+      </div>
+    </section>
+
+    <section class="section" id="services">
+      <div class="section-header">
+        <p class="label-caps">Услуги и цены</p>
+        <h2 class="heading-2">Услуги и цены</h2>
+      </div>
+      <p class="error" id="services-error"></p>
+      <div class="card-grid" id="services-grid">
+        <div class="skeleton-card" aria-hidden="true">
+          <div class="skeleton-line skeleton-line--title"></div>
+          <div class="skeleton-line"></div>
+          <div class="skeleton-line"></div>
+          <div class="skeleton-line skeleton-line--button"></div>
+        </div>
+        <div class="skeleton-card" aria-hidden="true">
+          <div class="skeleton-line skeleton-line--title"></div>
+          <div class="skeleton-line"></div>
+          <div class="skeleton-line"></div>
+          <div class="skeleton-line skeleton-line--button"></div>
+        </div>
+        <div class="skeleton-card" aria-hidden="true">
+          <div class="skeleton-line skeleton-line--title"></div>
+          <div class="skeleton-line"></div>
+          <div class="skeleton-line"></div>
+          <div class="skeleton-line skeleton-line--button"></div>
+        </div>
+        <div class="skeleton-card" aria-hidden="true">
+          <div class="skeleton-line skeleton-line--title"></div>
+          <div class="skeleton-line"></div>
+          <div class="skeleton-line"></div>
+          <div class="skeleton-line skeleton-line--button"></div>
+        </div>
+        <div class="skeleton-card" aria-hidden="true">
+          <div class="skeleton-line skeleton-line--title"></div>
+          <div class="skeleton-line"></div>
+          <div class="skeleton-line"></div>
+          <div class="skeleton-line skeleton-line--button"></div>
+        </div>
+        <div class="skeleton-card" aria-hidden="true">
+          <div class="skeleton-line skeleton-line--title"></div>
+          <div class="skeleton-line"></div>
+          <div class="skeleton-line"></div>
+          <div class="skeleton-line skeleton-line--button"></div>
+        </div>
+        <div class="skeleton-card" aria-hidden="true">
+          <div class="skeleton-line skeleton-line--title"></div>
+          <div class="skeleton-line"></div>
+          <div class="skeleton-line"></div>
+          <div class="skeleton-line skeleton-line--button"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section section--subtle" id="masters">
+      <div class="section-header">
+        <p class="label-caps">Мастера</p>
+        <h2 class="heading-2">Мастера студии</h2>
+      </div>
+      <p class="error" id="masters-error"></p>
+      <div class="card-grid" id="masters-grid">
+        <div class="skeleton-card skeleton-card--master" aria-hidden="true">
+          <div class="skeleton-portrait"></div>
+          <div class="skeleton-line skeleton-line--title"></div>
+          <div class="skeleton-line"></div>
+          <div class="skeleton-line"></div>
+          <div class="skeleton-line skeleton-line--button"></div>
+        </div>
+        <div class="skeleton-card skeleton-card--master" aria-hidden="true">
+          <div class="skeleton-portrait"></div>
+          <div class="skeleton-line skeleton-line--title"></div>
+          <div class="skeleton-line"></div>
+          <div class="skeleton-line"></div>
+          <div class="skeleton-line skeleton-line--button"></div>
+        </div>
+        <div class="skeleton-card skeleton-card--master" aria-hidden="true">
+          <div class="skeleton-portrait"></div>
+          <div class="skeleton-line skeleton-line--title"></div>
+          <div class="skeleton-line"></div>
+          <div class="skeleton-line"></div>
+          <div class="skeleton-line skeleton-line--button"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section section--faq" id="faq">
+      <div class="section-header">
+        <p class="label-caps">Частые вопросы</p>
+        <h2 class="heading-2">Перед записью</h2>
+      </div>
+      <div class="faq-list">
+        <div class="faq-item">
+          <h3 class="heading-4">Как отменить или перенести запись?</h3>
+          <p class="body-medium">
+            Отменить или перенести запись можно в личном кабинете. Звонить в студию не нужно.
+          </p>
+        </div>
+        <hr class="divider" />
+        <div class="faq-item">
+          <h3 class="heading-4">Нужна ли предоплата?</h3>
+          <p class="body-medium">
+            Да, полная предоплата вне сайта: оплату принимает студия, сервис только резервирует слот.
+          </p>
+        </div>
+        <hr class="divider" />
+        <div class="faq-item">
+          <h3 class="heading-4">Можно ли прийти без записи?</h3>
+          <p class="body-medium">Нет. Приём только по предварительной записи, без выезда на дом.</p>
+        </div>
+        <hr class="divider" />
+        <div class="faq-item">
+          <h3 class="heading-4">Как узнать точный адрес?</h3>
+          <p class="body-medium">
+            Точный адрес появится в личном кабинете после подтверждения записи. Публично указан только центр города.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section class="cta">
+      <h2 class="heading-2">Запишитесь онлайн</h2>
+      <p class="body-large">
+        Выберите услуги, мастера и свободное время — без переписки. Предоплату принимает студия, оплата на сайте не требуется.
+      </p>
+      <a class="button button--primary button--large" href="booking.html">Записаться</a>
+    </section>
+
+    <footer class="footer">
+      <div class="footer-cols">
+        <div class="footer-col">
+          <p class="label-caps">Студия</p>
+          <a href="#how">О нас</a>
+          <a href="#services">Услуги</a>
+          <a href="#masters">Мастера</a>
+        </div>
+        <div class="footer-col">
+          <p class="label-caps">Запись</p>
+          <a href="booking.html">Записаться</a>
+          <a href="catalog.html">Подарочный сертификат</a>
+          <a href="#faq">Правила</a>
+        </div>
+        <div class="footer-col">
+          <p class="label-caps">Кабинет</p>
+          <a href="auth.html">Мои записи</a>
+          <a href="auth.html">Профиль</a>
+          <a href="auth.html">Уведомления</a>
+        </div>
+        <div class="footer-col">
+          <p class="label-caps">Контакты</p>
+          <p>Центр города</p>
+          <p>Предварительная запись</p>
+        </div>
+      </div>
+      <p class="footer-copy">
+        © Ноготочки. Работаем с 2019 · <a href="privacy.html">Политика конфиденциальности</a>
+      </p>
+    </footer>
+
+    <script type="module" src="js/landing.js"></script>
+  </body>
+</html>

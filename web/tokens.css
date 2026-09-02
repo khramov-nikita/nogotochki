@@ -47,14 +47,14 @@
   --color-status-cancelled: #7a7a7a;
   --color-status-expired: #b42318;
 
-  /* Шрифт: семейства и имена начертаний как в Figma (не числовой weight) */
+  /* Шрифт: семейства как в Figma. Веса — CSS-числа тех же начертаний (Regular/Medium/Semi Bold/SemiBold/Bold) */
   --font-heading: "Playfair Display";
   --font-body: Inter;
-  --font-weight-regular: Regular;
-  --font-weight-medium: Medium;
-  --font-weight-semibold-sans: "Semi Bold";
-  --font-weight-semibold-serif: SemiBold;
-  --font-weight-bold: Bold;
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold-sans: 600;
+  --font-weight-semibold-serif: 600;
+  --font-weight-bold: 700;
 
   /* Display/Large */
   --font-size-display-large: 64px;

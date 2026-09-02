@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Вход — Ноготочки</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Playfair+Display:wght@600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="tokens.css" />
+    <link rel="stylesheet" href="landing.css" />
+    <link rel="stylesheet" href="auth.css" />
+  </head>
+  <body>
+    <header class="header">
+      <a class="logo" href="index.html">Ноготочки</a>
+      <nav class="nav" aria-label="Разделы сайта">
+        <a href="catalog.html">Услуги</a>
+        <a href="index.html#masters">Мастера</a>
+        <a href="booking.html">Записаться</a>
+      </nav>
+    </header>
+
+    <main class="auth-main">
+      <form class="auth-form" id="login-form" novalidate>
+        <div class="auth-intro">
+          <h1 class="heading-1">Вход</h1>
+          <p class="body-large">
+            Войдите, чтобы подтвердить запись и открыть кабинет. Оплата на сайте не требуется.
+          </p>
+        </div>
+
+        <div class="alert" id="form-alert">
+          <span class="icon icon--alert" aria-hidden="true"></span>
+          <p class="body-small"></p>
+        </div>
+
+        <div class="field" data-field="email">
+          <label class="label-caps" for="email">Почта</label>
+          <input
+            class="input"
+            id="email"
+            name="email"
+            type="email"
+            autocomplete="username"
+            placeholder="email@example.com"
+          />
+          <p class="field-error" data-error-for="email"></p>
+        </div>
+
+        <div class="field" data-field="password">
+          <label class="label-caps" for="password">Пароль</label>
+          <div class="input-password">
+            <input
+              class="input"
+              id="password"
+              name="password"
+              type="password"
+              autocomplete="current-password"
+              placeholder="••••••••"
+            />
+            <button type="button" class="password-toggle" data-password-toggle aria-label="Показать пароль">
+              <span class="icon icon--eye-off" aria-hidden="true"></span>
+            </button>
+          </div>
+          <p class="field-error" data-error-for="password"></p>
+        </div>
+
+        <button class="button button--primary button--large button--block" type="submit">Войти</button>
+
+        <div class="auth-links">
+          <a class="button button--text" href="register.html">Зарегистрироваться</a>
+          <a class="button button--text" href="auth-reset-sent.html">Забыли пароль</a>
+        </div>
+      </form>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-cols">
+        <div class="footer-col">
+          <p class="label-caps">Студия</p>
+          <a href="index.html#how">О нас</a>
+          <a href="catalog.html">Услуги</a>
+          <a href="index.html#masters">Мастера</a>
+        </div>
+        <div class="footer-col">
+          <p class="label-caps">Запись</p>
+          <a href="booking.html">Записаться</a>
+          <a href="catalog.html">Подарочный сертификат</a>
+          <a href="index.html#faq">Правила</a>
+        </div>
+        <div class="footer-col">
+          <p class="label-caps">Кабинет</p>
+          <a href="auth.html">Мои записи</a>
+          <a href="auth.html">Профиль</a>
+          <a href="auth.html">Уведомления</a>
+        </div>
+        <div class="footer-col">
+          <p class="label-caps">Контакты</p>
+          <p>Центр города</p>
+          <p>Предварительная запись</p>
+        </div>
+      </div>
+      <p class="footer-copy">
+        © Ноготочки. Работаем с 2019 · <a href="privacy.html">Политика конфиденциальности</a>
+      </p>
+    </footer>
+
+    <script type="module" src="js/auth-login.js"></script>
+  </body>
+</html>
