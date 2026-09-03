@@ -37,6 +37,17 @@ export function safeNextPage(search = location.search, fallback = "cabinet.html"
   return fallback;
 }
 
+export function postAuthDestination(search = location.search) {
+  const next = safeNextPage(search, "");
+  if (next) {
+    return next;
+  }
+  if (loadDraft().holdToken) {
+    return "booking-review.html";
+  }
+  return "cabinet.html";
+}
+
 export function currentPageForNext() {
   const page = location.pathname.split("/").pop() || "cabinet.html";
   if (!/^[A-Za-z0-9._-]+\.html$/.test(page)) {

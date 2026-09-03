@@ -14,7 +14,7 @@ function serviceCard(service) {
     : "";
   const href = service.is_bookable
     ? `booking.html?service_ids=${encodeURIComponent(service.id)}`
-    : "catalog.html";
+    : "index.html#services";
   const label = service.is_bookable ? "Записаться" : "Условия в студии";
 
   return `<article class="service-card">

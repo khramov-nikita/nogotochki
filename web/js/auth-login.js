@@ -1,5 +1,5 @@
 import { login } from "./api.js";
-import { loadDraft, preserveNextOnLinks, safeNextPage } from "./store.js";
+import { loadDraft, postAuthDestination, preserveNextOnLinks } from "./store.js";
 import {
   applyServerError,
   bindPasswordToggles,
@@ -47,7 +47,7 @@ form.addEventListener("submit", async (event) => {
       payload.hold_token = holdToken;
     }
     await login(payload);
-    window.location.href = safeNextPage();
+    window.location.href = postAuthDestination();
   } catch (error) {
     applyServerError(form, alertEl, error);
   }

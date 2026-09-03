@@ -1,5 +1,38 @@
 import { ApiError, getMe, logout } from "./api.js";
 import { escapeHtml } from "./format.js";
+import { currentPageForNext } from "./store.js";
+
+const AUTH_PAGES = new Set([
+  "auth.html",
+  "register.html",
+  "auth-reset-sent.html",
+  "auth-new-password.html",
+  "auth-password-changed.html",
+]);
+
+function currentPageName() {
+  return location.pathname.split("/").pop() || "index.html";
+}
+
+function isAuthPage() {
+  return AUTH_PAGES.has(currentPageName());
+}
+
+function isLanding() {
+  const page = currentPageName();
+  return page === "index.html" || page === "";
+}
+
+function authHref(page) {
+  if (isAuthPage() || isLanding()) {
+    return page;
+  }
+  const next = currentPageForNext();
+  if (!next || next === page) {
+    return page;
+  }
+  return `${page}?next=${encodeURIComponent(next)}`;
+}
 
 function clientLabel(client) {
   const name = client?.display_name?.trim();
@@ -22,17 +55,18 @@ function clientInitials(client) {
 function navMarkup() {
   return `<a class="logo" href="index.html">Ноготочки</a>
       <nav class="nav" aria-label="Разделы сайта">
-        <a href="catalog.html">Услуги</a>
+        <a href="index.html#services">Услуги</a>
         <a href="index.html#masters">Мастера</a>
         <a href="booking.html">Записаться</a>
       </nav>`;
 }
 
-function guestAccountMarkup() {
-  return `<div class="header-account">
-        <a class="header-login" href="auth.html">Войти</a>
-        <a class="header-login header-register" href="register.html">Регистрация</a>
-      </div>`;
+function guestAccountMarkup({ register = true } = {}) {
+  const login = `<a class="header-login" href="${authHref("auth.html")}">Войти</a>`;
+  const extra = register
+    ? `<a class="header-login header-register" href="${authHref("register.html")}">Регистрация</a>`
+    : "";
+  return `<div class="header-account">${login}${extra}</div>`;
 }
 
 function loggedInAccountMarkup(client) {
@@ -87,9 +121,13 @@ function overlayItems(header) {
     items.push({ href: "cabinet.html", label: "Кабинет", kind: "link" });
   }
 
-  const register = header.querySelector(".header-register, a[href='register.html']");
-  if (register && !items.some((item) => item.href === "register.html")) {
-    items.push({ href: "register.html", label: register.textContent.trim() || "Регистрация", kind: "link" });
+  const register = header.querySelector(".header-register");
+  if (register && !items.some((item) => /register\.html/.test(item.href))) {
+    items.push({
+      href: register.getAttribute("href") || "register.html",
+      label: register.textContent.trim() || "Регистрация",
+      kind: "link",
+    });
   }
 
   if (header.querySelector(".header-logout")) {
@@ -219,12 +257,37 @@ export async function mountHeader(root) {
   bindLogout(header);
 }
 
+async function applySessionToStaticHeader(header) {
+  if (isAuthPage()) {
+    enhanceHeader(header);
+    return;
+  }
+
+  try {
+    const body = await getMe();
+    if (body?.client) {
+      const login = header.querySelector(":scope > .header-login, .header-account");
+      const markup = loggedInAccountMarkup(body.client);
+      if (login) {
+        login.outerHTML = markup;
+      } else {
+        header.insertAdjacentHTML("beforeend", markup);
+      }
+    }
+  } catch {
+    // гость — оставляем разметку из HTML
+  }
+
+  enhanceHeader(header);
+  bindLogout(header);
+}
+
 const placeholder = document.getElementById("site-header");
 if (placeholder) {
   mountHeader(placeholder);
 } else {
   const staticHeader = document.querySelector("header.header");
   if (staticHeader) {
-    enhanceHeader(staticHeader);
+    applySessionToStaticHeader(staticHeader);
   }
 }

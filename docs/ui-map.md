@@ -1,6 +1,6 @@
 # Карта клиентских экранов
 
-Сверка фреймов Figma (`Screens`, файл `PN8kfs5KAmLwwqZIKmnAOG`) с живым HTTP API в `server/src/http/`. Нужна до верстки продуктового UI. Черновой тестовый фронт `web/` сюда не входит. Папки `Прототип/` в репозитории нет — имя экрана = имя фрейма.
+Сверка фреймов Figma (`Screens`, файл `PN8kfs5KAmLwwqZIKmnAOG`) с живым HTTP API в `server/src/http/` и страницами `web/*.html`. Черновой hash-UI (`web/src/`, `web/test.html`) сюда не входит. Папки `Прототип/` в репозитории нет — имя экрана = имя фрейма. Админ-панель — следующая итерация.
 
 Источники: `cloud.md`, `Путь клиента.md` §3, `docs/db-schema.md` §2, `docs/database.md` §HTTP API, роутеры `server/src/http/routes/`.
 
