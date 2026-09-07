@@ -1,6 +1,6 @@
 import { ApiError, getMe, logout } from "./api.js";
 import { escapeHtml } from "./format.js";
-import { currentPageForNext } from "./store.js";
+import { currentPageForNext, hasAdministratorRole, isAdminPath } from "./store.js";
 
 const AUTH_PAGES = new Set([
   "auth.html",
@@ -24,14 +24,15 @@ function isLanding() {
 }
 
 function authHref(page) {
+  const href = page.startsWith("/") ? page : `/${page}`;
   if (isAuthPage() || isLanding()) {
-    return page;
+    return href;
   }
   const next = currentPageForNext();
-  if (!next || next === page) {
-    return page;
+  if (!next || next === page || next === href) {
+    return href;
   }
-  return `${page}?next=${encodeURIComponent(next)}`;
+  return `${href}?next=${encodeURIComponent(next)}`;
 }
 
 function clientLabel(client) {
@@ -52,12 +53,31 @@ function clientInitials(client) {
   return email.slice(0, 1).toUpperCase();
 }
 
-function navMarkup() {
-  return `<a class="logo" href="index.html">Ноготочки</a>
+function adminNavMarkup() {
+  const current = (location.pathname.replace(/\/$/, "") || "/admin");
+  const item = (href, label) => {
+    const selected = current === href ? ` aria-current="page"` : "";
+    return `<a href="${href}"${selected}>${label}</a>`;
+  };
+  return `<a class="logo" href="/index.html">Ноготочки</a>
+      <nav class="nav" aria-label="Разделы администратора">
+        ${item("/admin", "Записи")}
+        ${item("/admin/services", "Услуги")}
+        ${item("/admin/masters", "Мастера")}
+      </nav>`;
+}
+
+function navMarkup(client) {
+  if (isAdminPath() && hasAdministratorRole(client)) {
+    return adminNavMarkup();
+  }
+  const adminLink = hasAdministratorRole(client) ? `<a href="/admin">Админка</a>` : "";
+  return `<a class="logo" href="/index.html">Ноготочки</a>
       <nav class="nav" aria-label="Разделы сайта">
-        <a href="index.html#services">Услуги</a>
-        <a href="index.html#masters">Мастера</a>
-        <a href="booking.html">Записаться</a>
+        <a href="/index.html#services">Услуги</a>
+        <a href="/index.html#masters">Мастера</a>
+        <a href="/booking.html">Записаться</a>
+        ${adminLink}
       </nav>`;
 }
 
@@ -72,8 +92,9 @@ function guestAccountMarkup({ register = true } = {}) {
 function loggedInAccountMarkup(client) {
   const label = clientLabel(client);
   const initials = clientInitials(client);
+  const home = isAdminPath() && hasAdministratorRole(client) ? "/admin" : "/cabinet.html";
   return `<div class="header-account">
-        <a class="header-user" href="cabinet.html">
+        <a class="header-user" href="${home}">
           <span class="header-avatar" aria-hidden="true">${escapeHtml(initials)}</span>
           <span class="header-user-name">${escapeHtml(label)}</span>
         </a>
@@ -87,7 +108,7 @@ function bindLogout(root) {
       button.disabled = true;
       try {
         await logout();
-        window.location.href = "index.html";
+        window.location.href = "/index.html";
       } catch (error) {
         button.disabled = false;
         const message = error instanceof ApiError ? error.message : "Не удалось выйти";
@@ -117,8 +138,9 @@ function overlayItems(header) {
     items.push({ href, label, kind: "link" });
   });
 
-  if (!items.some((item) => /кабинет/i.test(item.label))) {
-    items.push({ href: "cabinet.html", label: "Кабинет", kind: "link" });
+  const adminNav = header.querySelector('nav[aria-label="Разделы администратора"]');
+  if (!adminNav && !items.some((item) => /кабинет/i.test(item.label))) {
+    items.push({ href: "/cabinet.html", label: "Кабинет", kind: "link" });
   }
 
   const register = header.querySelector(".header-register");
@@ -233,21 +255,20 @@ export async function mountHeader(root) {
     return;
   }
 
-  const header = document.createElement("header");
-  header.className = "header";
-  header.innerHTML = `${navMarkup()}<div class="header-account"></div>`;
-  root.replaceWith(header);
-
-  let account = guestAccountMarkup();
+  let client = null;
   try {
     const body = await getMe();
-    if (body?.client) {
-      account = loggedInAccountMarkup(body.client);
-    }
+    client = body?.client || null;
   } catch {
-    account = guestAccountMarkup();
+    client = null;
   }
 
+  const header = document.createElement("header");
+  header.className = "header";
+  header.innerHTML = `${navMarkup(client)}<div class="header-account"></div>`;
+  root.replaceWith(header);
+
+  const account = client ? loggedInAccountMarkup(client) : guestAccountMarkup();
   const slot = header.querySelector(".header-account");
   if (slot) {
     slot.outerHTML = account;
@@ -266,6 +287,12 @@ async function applySessionToStaticHeader(header) {
   try {
     const body = await getMe();
     if (body?.client) {
+      if (hasAdministratorRole(body.client) && !isAdminPath()) {
+        const nav = header.querySelector(".nav");
+        if (nav && !nav.querySelector('a[href="/admin"]')) {
+          nav.insertAdjacentHTML("beforeend", `<a href="/admin">Админка</a>`);
+        }
+      }
       const login = header.querySelector(":scope > .header-login, .header-account");
       const markup = loggedInAccountMarkup(body.client);
       if (login) {

@@ -1,0 +1,4 @@
+.nav a[aria-current="page"] {
+  text-decoration: underline;
+  text-underline-offset: var(--spacing-4);
+}

@@ -4,6 +4,7 @@ import { getConfig } from "./config.js";
 import { corsMiddleware } from "./middleware/cors.js";
 import { optionalAuth } from "./middleware/auth.js";
 import adminRouter from "./routes/admin.js";
+import { adminPagesHandler } from "./routes/admin-pages.js";
 import appointmentsRouter from "./routes/appointments.js";
 import authRouter from "./routes/auth.js";
 import catalogRouter from "./routes/catalog.js";
@@ -26,6 +27,11 @@ export function createApp() {
   app.use("/api/holds", holdsRouter);
   app.use("/api/appointments", appointmentsRouter);
   app.use("/api/admin", adminRouter);
+
+  app.get(
+    ["/admin", "/admin/", "/admin/services", "/admin/services/", "/admin/masters", "/admin/masters/"],
+    adminPagesHandler,
+  );
 
   app.use(notFoundHandler);
   app.use(errorHandler);

@@ -324,6 +324,41 @@ test("reschedule moves the same row", async () => {
   assert.equal(moved.body.appointment.starts_at, nextSlot.starts_at);
 });
 
+test("GET /admin rejects a client with 403 HTML and allows an administrator", async () => {
+  const guest = await fetch(`${base}/admin`, { redirect: "manual" });
+  assert.equal(guest.status, 302);
+  assert.match(guest.headers.get("location") || "", /\/auth\.html\?next=/);
+
+  const client = await api("/api/auth/login", {
+    method: "POST",
+    body: JSON.stringify({ email: "client@nogotochki.test", password: "DevClient123!" }),
+  });
+  const denied = await api("/admin", { token: client.body.token });
+  assert.equal(denied.status, 403);
+  assert.match(String(denied.body), /Этот раздел только для администраторов/);
+
+  const deniedServices = await api("/admin/services", { token: client.body.token });
+  assert.equal(deniedServices.status, 403);
+  const deniedMasters = await api("/admin/masters", { token: client.body.token });
+  assert.equal(deniedMasters.status, 403);
+
+  const admin = await api("/api/auth/login", {
+    method: "POST",
+    body: JSON.stringify({ email: "admin@nogotochki.test", password: "DevAdmin123!" }),
+  });
+  const page = await api("/admin", { token: admin.body.token });
+  assert.equal(page.status, 200);
+  assert.match(String(page.body), /<h1 class="heading-1">Записи<\/h1>/);
+
+  const services = await api("/admin/services", { token: admin.body.token });
+  assert.equal(services.status, 200);
+  assert.match(String(services.body), /<h1 class="heading-1">Услуги<\/h1>/);
+
+  const masters = await api("/admin/masters", { token: admin.body.token });
+  assert.equal(masters.status, 200);
+  assert.match(String(masters.body), /<h1 class="heading-1">Мастера<\/h1>/);
+});
+
 test("admin endpoints reject a client and allow an administrator role", async () => {
   const client = await api("/api/auth/login", {
     method: "POST",

@@ -29,26 +29,56 @@ export function loadAppointmentId() {
   return Number.isInteger(raw) && raw > 0 ? raw : null;
 }
 
+export function hasAdministratorRole(client) {
+  return Array.isArray(client?.roles) && client.roles.includes("administrator");
+}
+
+export function isAdminPath(pathname = location.pathname) {
+  return pathname === "/admin" || pathname.startsWith("/admin/");
+}
+
+function normalizeAdminPath(pathname) {
+  const trimmed = String(pathname || "").replace(/\/$/, "");
+  return trimmed || "/admin";
+}
+
+function isSafeAdminNext(next) {
+  return /^\/admin(?:\/(?:services|masters))?\/?$/.test(next);
+}
+
 export function safeNextPage(search = location.search, fallback = "cabinet.html") {
   const next = new URLSearchParams(search.startsWith("?") ? search.slice(1) : search).get("next") || "";
   if (/^[A-Za-z0-9._-]+\.html(?:\?[A-Za-z0-9._=&-]+)?$/.test(next)) {
     return next;
   }
+  if (isSafeAdminNext(next)) {
+    return normalizeAdminPath(next);
+  }
   return fallback;
 }
 
-export function postAuthDestination(search = location.search) {
+export function postAuthDestination(search = location.search, client = null) {
   const next = safeNextPage(search, "");
+  const isAdmin = hasAdministratorRole(client);
   if (next) {
+    if (isSafeAdminNext(next) && !isAdmin) {
+      return "cabinet.html";
+    }
     return next;
   }
   if (loadDraft().holdToken) {
     return "booking-review.html";
   }
+  if (isAdmin) {
+    return "/admin";
+  }
   return "cabinet.html";
 }
 
 export function currentPageForNext() {
+  if (isAdminPath()) {
+    return normalizeAdminPath(location.pathname);
+  }
   const page = location.pathname.split("/").pop() || "cabinet.html";
   if (!/^[A-Za-z0-9._-]+\.html$/.test(page)) {
     return "cabinet.html";

@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Нет доступа — Ноготочки</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Playfair+Display:wght@600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/tokens.css" />
+    <link rel="stylesheet" href="/landing.css" />
+    <link rel="stylesheet" href="/auth.css" />
+    <link rel="stylesheet" href="/booking.css" />
+    <link rel="stylesheet" href="/cabinet.css" />
+    <link rel="stylesheet" href="/admin.css" />
+    <link rel="stylesheet" href="/responsive.css" />
+  </head>
+  <body>
+    <div id="site-header"></div>
+
+    <main class="booking-main">
+      <div class="booking-column">
+        <div class="cabinet-empty">
+          <h1 class="heading-1">Этот раздел только для администраторов</h1>
+          <p class="body-large">У вашей учётной записи нет доступа к админке. Вернитесь в кабинет.</p>
+          <a class="button button--primary button--large" href="/cabinet.html">В кабинет</a>
+        </div>
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-cols">
+        <div class="footer-col">
+          <p class="label-caps">Студия</p>
+          <a href="/index.html#how">О нас</a>
+          <a href="/index.html#services">Услуги</a>
+          <a href="/index.html#masters">Мастера</a>
+        </div>
+        <div class="footer-col">
+          <p class="label-caps">Запись</p>
+          <a href="/booking.html">Записаться</a>
+          <a href="/index.html#services">Подарочный сертификат</a>
+          <a href="/index.html#faq">Правила</a>
+        </div>
+        <div class="footer-col">
+          <p class="label-caps">Кабинет</p>
+          <a href="/cabinet.html">Мои записи</a>
+          <a href="/cabinet.html">Профиль</a>
+          <a href="/cabinet.html">Уведомления</a>
+        </div>
+        <div class="footer-col">
+          <p class="label-caps">Контакты</p>
+          <p>Центр города</p>
+          <p>Предварительная запись</p>
+        </div>
+      </div>
+      <p class="footer-copy">
+        © Ноготочки. Работаем с 2019 · <a href="/index.html#faq">Политика конфиденциальности</a>
+      </p>
+    </footer>
+
+    <script type="module" src="/js/header.js"></script>
+  </body>
+</html>

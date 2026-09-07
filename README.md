@@ -125,7 +125,7 @@ npm run dev
 |---|---|---|
 | `client@nogotochki.test` | `DevClient123!` | клиент, кабинет |
 | `master@nogotochki.test` | `DevMaster123!` | мастер (отдельного UI мастера нет) |
-| `admin@nogotochki.test` | `DevAdmin123!` | администратор (админ-панель — следующая итерация) |
+| `admin@nogotochki.test` | `DevAdmin123!` | администратор (`/admin`) |
 
 Ошибки API, в том числе «Это время уже занято», показываются текстом на экране.
 

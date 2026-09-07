@@ -46,8 +46,8 @@ form.addEventListener("submit", async (event) => {
     if (holdToken) {
       payload.hold_token = holdToken;
     }
-    await login(payload);
-    window.location.href = postAuthDestination();
+    const body = await login(payload);
+    window.location.href = postAuthDestination(location.search, body?.client);
   } catch (error) {
     applyServerError(form, alertEl, error);
   }
