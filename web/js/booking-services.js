@@ -65,7 +65,7 @@ async function init() {
   let services = [];
 
   try {
-    services = (await getServices()).filter((row) => row.is_bookable);
+    services = (await getServices()).filter((row) => row.is_bookable && row.is_active !== false);
   } catch (error) {
     errorEl.textContent = error.message || "Не удалось загрузить услуги";
     return;

@@ -153,3 +153,37 @@ export function getMe() {
 export function logout() {
   return api("/api/auth/logout", { method: "POST" });
 }
+
+export async function adminListServices() {
+  const body = await api("/api/admin/services");
+  return body.services || [];
+}
+
+export function adminCreateService(payload) {
+  return api("/api/admin/services", { method: "POST", body: payload });
+}
+
+export function adminUpdateService(id, payload) {
+  return api(`/api/admin/services/${id}`, { method: "PATCH", body: payload });
+}
+
+export function adminDeleteService(id) {
+  return api(`/api/admin/services/${id}`, { method: "DELETE" });
+}
+
+export async function adminListMasters() {
+  const body = await api("/api/admin/masters");
+  return body.masters || [];
+}
+
+export function adminCreateMaster(payload) {
+  return api("/api/admin/masters", { method: "POST", body: payload });
+}
+
+export function adminUpdateMaster(id, payload) {
+  return api(`/api/admin/masters/${id}`, { method: "PATCH", body: payload });
+}
+
+export function adminDeleteMaster(id) {
+  return api(`/api/admin/masters/${id}`, { method: "DELETE" });
+}

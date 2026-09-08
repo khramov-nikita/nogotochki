@@ -23,12 +23,36 @@
 
     <main class="booking-main">
       <div class="booking-column">
-        <div class="booking-intro">
-          <h1 class="heading-1">Мастера</h1>
-          <p class="body-medium">Мастера студии. График и состав услуг появятся здесь.</p>
+        <div id="admin-root">
+          <div class="booking-intro">
+            <h1 class="heading-1">Мастера</h1>
+            <p class="body-medium">Загрузка списка…</p>
+          </div>
         </div>
       </div>
     </main>
+
+    <div class="cabinet-modal-overlay" id="delete-overlay" hidden>
+      <div class="cabinet-modal" role="dialog" aria-modal="true" aria-labelledby="delete-title">
+        <div class="cabinet-modal__head">
+          <h2 class="heading-3" id="delete-title">Удалить мастера?</h2>
+          <button class="cabinet-modal__close" type="button" data-delete-dismiss aria-label="Закрыть">
+            <span class="icon icon--close" aria-hidden="true"></span>
+          </button>
+        </div>
+        <div class="cabinet-modal__body">
+          <p class="body-medium" id="delete-body">Если на мастера есть записи, сервер отключит его, а не удалит.</p>
+          <div class="banner banner--warning" id="delete-warning" hidden>
+            <span class="icon icon--alert" aria-hidden="true"></span>
+            <p class="body-small"></p>
+          </div>
+        </div>
+        <div class="cabinet-modal__actions">
+          <button class="button button--ghost button--large" type="button" data-delete-dismiss>Закрыть</button>
+          <button class="button button--primary button--large" type="button" id="delete-confirm">Удалить</button>
+        </div>
+      </div>
+    </div>
 
     <footer class="footer">
       <div class="footer-cols">
@@ -62,5 +86,6 @@
     </footer>
 
     <script type="module" src="/js/header.js"></script>
+    <script type="module" src="/js/admin-masters.js"></script>
   </body>
 </html>

@@ -18,6 +18,7 @@ export function serializeService(row) {
     duration_max_minutes: row.duration_max_minutes ?? null,
     is_addon: asBool(row.is_addon),
     is_bookable: asBool(row.is_bookable),
+    is_active: row.is_active == null ? true : asBool(row.is_active),
     validity_months: row.validity_months ?? null,
     image_path: row.image_path || null,
     sort_order: row.sort_order,
@@ -42,8 +43,9 @@ export function listServices() {
       `
       SELECT id, slug, name, description, price_rub, price_rub_alt,
              duration_min_minutes, duration_max_minutes, is_addon, is_bookable,
-             validity_months, image_path, sort_order
+             is_active, validity_months, image_path, sort_order
       FROM services
+      WHERE is_active = 1
       ORDER BY sort_order, id
       `,
     )
@@ -82,7 +84,7 @@ export function loadBookableServices(db, serviceIds) {
       .prepare(
         `
         SELECT id, slug, name, price_rub, duration_min_minutes, duration_max_minutes,
-               is_addon, is_bookable, sort_order
+               is_addon, is_bookable, is_active, sort_order
         FROM services
         WHERE id = ?
         `,
@@ -91,6 +93,9 @@ export function loadBookableServices(db, serviceIds) {
   );
   if (rows.some((row) => !row)) {
     throw new HttpError(400, "VALIDATION_ERROR", "Услуга не найдена");
+  }
+  if (rows.some((row) => row.is_active !== 1)) {
+    throw new HttpError(400, "VALIDATION_ERROR", "Эта услуга отключена");
   }
   if (rows.some((row) => row.is_bookable !== 1)) {
     throw new HttpError(400, "VALIDATION_ERROR", "Эту услугу нельзя записать в слот");

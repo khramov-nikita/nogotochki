@@ -428,12 +428,113 @@ test("admin endpoints reject a client and allow an administrator role", async ()
     token: admin.body.token,
   });
   assert.equal(deletedService.status, 200);
+  assert.equal(deletedService.body.deleted, true);
 
   const blocked = await api("/api/admin/services/1", {
     method: "DELETE",
     token: admin.body.token,
   });
-  assert.equal(blocked.status, 409);
+  assert.equal(blocked.status, 200);
+  assert.equal(blocked.body.deleted, false);
+  assert.equal(blocked.body.disabled, true);
+  assert.equal(blocked.body.service.is_active, false);
+  assert.match(blocked.body.message, /отключена, а не удалена/);
+
+  const publicAfterDisable = await api("/api/services");
+  assert.equal(publicAfterDisable.status, 200);
+  assert.ok(!publicAfterDisable.body.services.some((row) => row.id === 1));
+
+  const adminList = await api("/api/admin/services", { token: admin.body.token });
+  assert.ok(adminList.body.services.some((row) => row.id === 1 && row.is_active === false));
+
+  const restored = await api("/api/admin/services/1", {
+    method: "PATCH",
+    token: admin.body.token,
+    body: JSON.stringify({ is_active: 1 }),
+  });
+  assert.equal(restored.status, 200);
+  assert.equal(restored.body.service.is_active, true);
+
+  const emptyName = await api("/api/admin/services", {
+    method: "POST",
+    token: admin.body.token,
+    body: JSON.stringify({
+      slug: "bad_name",
+      name: "   ",
+      price_rub: 500,
+      duration_min_minutes: 30,
+      duration_max_minutes: 30,
+      is_bookable: 1,
+    }),
+  });
+  assert.equal(emptyName.status, 400);
+
+  const zeroPrice = await api("/api/admin/services", {
+    method: "POST",
+    token: admin.body.token,
+    body: JSON.stringify({
+      slug: "bad_price",
+      name: "Ноль рублей",
+      price_rub: 0,
+      duration_min_minutes: 30,
+      duration_max_minutes: 30,
+      is_bookable: 1,
+    }),
+  });
+  assert.equal(zeroPrice.status, 400);
+
+  const zeroDuration = await api("/api/admin/services", {
+    method: "POST",
+    token: admin.body.token,
+    body: JSON.stringify({
+      slug: "bad_duration",
+      name: "Нулевая длительность",
+      price_rub: 500,
+      duration_min_minutes: 0,
+      duration_max_minutes: 0,
+      is_bookable: 1,
+    }),
+  });
+  assert.equal(zeroDuration.status, 400);
+});
+
+test("appointment keeps catalog price from the moment it was created", async () => {
+  const client = await api("/api/auth/login", {
+    method: "POST",
+    body: JSON.stringify({ email: "client@nogotochki.test", password: "DevClient123!" }),
+  });
+  const mine = await api("/api/appointments?scope=active", { token: client.body.token });
+  const visit = mine.body.appointments.find((row) => row.services?.some((item) => item.id === 1));
+  assert.ok(visit);
+  const originalPrice = visit.total_price_rub;
+  assert.equal(originalPrice, 1800);
+
+  const admin = await api("/api/auth/login", {
+    method: "POST",
+    body: JSON.stringify({ email: "admin@nogotochki.test", password: "DevAdmin123!" }),
+  });
+  const patched = await api("/api/admin/services/1", {
+    method: "PATCH",
+    token: admin.body.token,
+    body: JSON.stringify({ price_rub: 9999 }),
+  });
+  assert.equal(patched.status, 200);
+  assert.equal(patched.body.service.price_rub, 9999);
+
+  const catalog = await api("/api/services");
+  const gel = catalog.body.services.find((row) => row.id === 1);
+  assert.equal(gel.price_rub, 9999);
+
+  const again = await api(`/api/appointments/${visit.id}`, { token: client.body.token });
+  assert.equal(again.status, 200);
+  assert.equal(again.body.appointment.total_price_rub, originalPrice);
+  assert.equal(again.body.appointment.services[0].price_rub, originalPrice);
+
+  await api("/api/admin/services/1", {
+    method: "PATCH",
+    token: admin.body.token,
+    body: JSON.stringify({ price_rub: 1800 }),
+  });
 });
 
 test("client overlap_override is ignored and does not stack on a busy slot", async () => {

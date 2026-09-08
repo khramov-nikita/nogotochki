@@ -5,7 +5,7 @@ import { loadDraft, saveDraft } from "./store.js";
 
 function hasMainService(services, serviceIds) {
   const selected = new Set(serviceIds || []);
-  return services.some((row) => selected.has(row.id) && row.is_bookable && !row.is_addon);
+  return services.some((row) => selected.has(row.id) && row.is_bookable && row.is_active !== false && !row.is_addon);
 }
 
 function masterRow(master, { selected, available }) {

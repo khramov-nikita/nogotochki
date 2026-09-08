@@ -227,6 +227,10 @@ export function formatDurationMinutes(minutes) {
   });
 }
 
+export function weekdayLabel(weekday) {
+  return ["", "пн", "вт", "ср", "чт", "пт", "сб", "вс"][weekday] || String(weekday);
+}
+
 export function formatVisitSummary(services) {
   const selected = (services || []).filter(Boolean);
   if (!selected.length) {

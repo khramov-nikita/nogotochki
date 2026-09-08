@@ -1,4 +1,6 @@
 .env
+.env.test
+.env.test.local
 node_modules/
 
 data/*.sqlite

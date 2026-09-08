@@ -142,6 +142,97 @@ function replaceSchedule(db, masterId, schedule) {
   }
 }
 
+function parsePositiveRub(value, field) {
+  if (value == null || value === "") {
+    throw new HttpError(400, "VALIDATION_ERROR", `Укажите ${field}`);
+  }
+  const number = typeof value === "number" ? value : Number(value);
+  if (!Number.isInteger(number) || number <= 0) {
+    throw new HttpError(400, "VALIDATION_ERROR", "Цена должна быть положительной");
+  }
+  return number;
+}
+
+function parseOptionalPositiveRub(value, field) {
+  if (value == null || value === "") {
+    return null;
+  }
+  return parsePositiveRub(value, field);
+}
+
+function parseServiceDurations(payload, isBookable, current = null) {
+  const minSource =
+    payload.duration_min_minutes === undefined && current
+      ? current.duration_min_minutes
+      : payload.duration_min_minutes;
+  const maxSource =
+    payload.duration_max_minutes === undefined && current
+      ? current.duration_max_minutes
+      : payload.duration_max_minutes;
+  const optional = isBookable !== 1;
+  const durationMin = parseInteger(minSource, "duration_min_minutes", { min: 1, optional });
+  const durationMax = parseInteger(maxSource, "duration_max_minutes", { min: 1, optional });
+  if (isBookable === 1 && (durationMin == null || durationMax == null)) {
+    throw new HttpError(400, "VALIDATION_ERROR", "Длительность должна быть положительной");
+  }
+  if (durationMin != null && durationMax != null && durationMax < durationMin) {
+    throw new HttpError(
+      400,
+      "VALIDATION_ERROR",
+      "duration_max_minutes не может быть меньше duration_min_minutes",
+    );
+  }
+  return { durationMin, durationMax };
+}
+
+function parseMasterServiceIds(value, { missing = [] } = {}) {
+  if (value == null) {
+    return missing;
+  }
+  if (Array.isArray(value) && value.length === 0) {
+    return [];
+  }
+  return parseServiceIds(value);
+}
+
+function serviceHasReferences(db, id) {
+  const appointments = db
+    .prepare("SELECT COUNT(*) AS n FROM appointment_services WHERE service_id = ?")
+    .get(id).n;
+  const holds = db
+    .prepare("SELECT COUNT(*) AS n FROM booking_hold_services WHERE service_id = ?")
+    .get(id).n;
+  return { appointments, holds, any: appointments > 0 || holds > 0 };
+}
+
+function masterHasReferences(db, id) {
+  const appointments = db.prepare("SELECT COUNT(*) AS n FROM appointments WHERE master_id = ?").get(id).n;
+  const holds = db.prepare("SELECT COUNT(*) AS n FROM booking_holds WHERE master_id = ?").get(id).n;
+  return { appointments, holds, any: appointments > 0 || holds > 0 };
+}
+
+function disableService(db, id) {
+  db.prepare("UPDATE services SET is_active = 0, updated_at = ? WHERE id = ?").run(nowUtcIso(), id);
+  return {
+    ok: true,
+    deleted: false,
+    disabled: true,
+    message: "У услуги есть записи, поэтому она отключена, а не удалена.",
+    service: loadService(db, id),
+  };
+}
+
+function disableMaster(db, id) {
+  db.prepare("UPDATE masters SET is_active = 0, updated_at = ? WHERE id = ?").run(nowUtcIso(), id);
+  return {
+    ok: true,
+    deleted: false,
+    disabled: true,
+    message: "У мастера есть записи, поэтому он отключён, а не удалён.",
+    master: loadMaster(db, id),
+  };
+}
+
 export function listAdminServices() {
   const db = getDb();
   return db.prepare("SELECT * FROM services ORDER BY sort_order, id").all().map(serializeService);
@@ -150,22 +241,13 @@ export function listAdminServices() {
 export function createService(body) {
   const payload = requireBodyObject(body);
   const slug = parseSlug(payload.slug);
-  const name = parseRequiredName(payload.name, "name");
-  const priceRub = parseInteger(payload.price_rub, "price_rub", { min: 0 });
-  const priceRubAlt = parseInteger(payload.price_rub_alt, "price_rub_alt", {
-    min: 0,
-    optional: true,
-  });
-  const durationMin = parseInteger(payload.duration_min_minutes, "duration_min_minutes", {
-    min: 1,
-    optional: true,
-  });
-  const durationMax = parseInteger(payload.duration_max_minutes, "duration_max_minutes", {
-    min: 1,
-    optional: true,
-  });
+  const name = parseRequiredName(payload.name, "название");
+  const priceRub = parsePositiveRub(payload.price_rub, "price_rub");
+  const priceRubAlt = parseOptionalPositiveRub(payload.price_rub_alt, "price_rub_alt");
   const isAddon = parseBooleanFlag(payload.is_addon ?? 0, "is_addon");
   const isBookable = parseBooleanFlag(payload.is_bookable ?? 1, "is_bookable");
+  const isActive = parseBooleanFlag(payload.is_active ?? 1, "is_active");
+  const { durationMin, durationMax } = parseServiceDurations(payload, isBookable);
   const validityMonths = parseInteger(payload.validity_months, "validity_months", {
     min: 1,
     optional: true,
@@ -183,9 +265,9 @@ export function createService(body) {
         `
         INSERT INTO services (
           slug, name, description, price_rub, price_rub_alt,
-          duration_min_minutes, duration_max_minutes, is_addon, is_bookable,
+          duration_min_minutes, duration_max_minutes, is_addon, is_bookable, is_active,
           validity_months, image_path, sort_order, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `,
       )
       .run(
@@ -198,6 +280,7 @@ export function createService(body) {
         durationMax,
         isAddon,
         isBookable,
+        isActive,
         validityMonths,
         imagePath,
         sortOrder,
@@ -221,30 +304,31 @@ export function updateService(id, body) {
     throw new HttpError(404, "NOT_FOUND", "Услуга не найдена");
   }
 
+  const isAddon = payload.is_addon == null ? current.is_addon : parseBooleanFlag(payload.is_addon, "is_addon");
+  const isBookable =
+    payload.is_bookable == null ? current.is_bookable : parseBooleanFlag(payload.is_bookable, "is_bookable");
+  const isActive =
+    payload.is_active == null ? current.is_active : parseBooleanFlag(payload.is_active, "is_active");
+  const { durationMin, durationMax } = parseServiceDurations(payload, isBookable, current);
+
   const next = {
     slug: payload.slug == null ? current.slug : parseSlug(payload.slug),
-    name: payload.name == null ? current.name : parseRequiredName(payload.name, "name"),
+    name: payload.name == null ? current.name : parseRequiredName(payload.name, "название"),
     description:
       payload.description === undefined
         ? current.description
         : parseOptionalText(payload.description, "description", { max: 2000 }),
     price_rub:
-      payload.price_rub == null ? current.price_rub : parseInteger(payload.price_rub, "price_rub", { min: 0 }),
+      payload.price_rub == null ? current.price_rub : parsePositiveRub(payload.price_rub, "price_rub"),
     price_rub_alt:
       payload.price_rub_alt === undefined
         ? current.price_rub_alt
-        : parseInteger(payload.price_rub_alt, "price_rub_alt", { min: 0, optional: true }),
-    duration_min_minutes:
-      payload.duration_min_minutes === undefined
-        ? current.duration_min_minutes
-        : parseInteger(payload.duration_min_minutes, "duration_min_minutes", { min: 1, optional: true }),
-    duration_max_minutes:
-      payload.duration_max_minutes === undefined
-        ? current.duration_max_minutes
-        : parseInteger(payload.duration_max_minutes, "duration_max_minutes", { min: 1, optional: true }),
-    is_addon: payload.is_addon == null ? current.is_addon : parseBooleanFlag(payload.is_addon, "is_addon"),
-    is_bookable:
-      payload.is_bookable == null ? current.is_bookable : parseBooleanFlag(payload.is_bookable, "is_bookable"),
+        : parseOptionalPositiveRub(payload.price_rub_alt, "price_rub_alt"),
+    duration_min_minutes: durationMin,
+    duration_max_minutes: durationMax,
+    is_addon: isAddon,
+    is_bookable: isBookable,
+    is_active: isActive,
     validity_months:
       payload.validity_months === undefined
         ? current.validity_months
@@ -264,7 +348,7 @@ export function updateService(id, body) {
       `
       UPDATE services SET
         slug = ?, name = ?, description = ?, price_rub = ?, price_rub_alt = ?,
-        duration_min_minutes = ?, duration_max_minutes = ?, is_addon = ?, is_bookable = ?,
+        duration_min_minutes = ?, duration_max_minutes = ?, is_addon = ?, is_bookable = ?, is_active = ?,
         validity_months = ?, image_path = ?, sort_order = ?, updated_at = ?
       WHERE id = ?
       `,
@@ -278,6 +362,7 @@ export function updateService(id, body) {
       next.duration_max_minutes,
       next.is_addon,
       next.is_bookable,
+      next.is_active,
       next.validity_months,
       next.image_path,
       next.sort_order,
@@ -299,11 +384,16 @@ export function deleteService(id) {
   if (!current) {
     throw new HttpError(404, "NOT_FOUND", "Услуга не найдена");
   }
+  const refs = serviceHasReferences(db, id);
+  if (refs.any) {
+    return disableService(db, id);
+  }
   try {
     db.prepare("DELETE FROM services WHERE id = ?").run(id);
+    return { ok: true, deleted: true };
   } catch (error) {
     if (isForeignKeyConstraint(error)) {
-      throw new HttpError(409, "IN_USE", "Нельзя удалить услугу, пока на неё есть записи или резервы");
+      return disableService(db, id);
     }
     throw error;
   }
@@ -324,7 +414,7 @@ export function createMaster(body) {
   const isActive = parseBooleanFlag(payload.is_active ?? 1, "is_active");
   const sortOrder =
     payload.sort_order == null ? nextSortOrder(getDb(), "masters") : parseInteger(payload.sort_order, "sort_order", { min: 0 });
-  const serviceIds = payload.service_ids == null ? [] : parseServiceIds(payload.service_ids);
+  const serviceIds = parseMasterServiceIds(payload.service_ids, { missing: [] });
   const schedule = parseSchedule(payload.schedule) || [];
   const portraitPath = parseOptionalText(payload.portrait_path, "portrait_path", { max: 500 });
   const coverPath = parseOptionalText(payload.cover_path, "cover_path", { max: 500 });
@@ -377,7 +467,7 @@ export function updateMaster(id, body) {
     payload.cover_path === undefined
       ? current.cover_path
       : parseOptionalText(payload.cover_path, "cover_path", { max: 500 });
-  const serviceIds = payload.service_ids == null ? null : parseServiceIds(payload.service_ids);
+  const serviceIds = payload.service_ids === undefined ? null : parseMasterServiceIds(payload.service_ids);
   const schedule = parseSchedule(payload.schedule);
 
   return runInTransaction(db, () => {
@@ -401,11 +491,16 @@ export function deleteMaster(id) {
   if (!current) {
     throw new HttpError(404, "NOT_FOUND", "Мастер не найден");
   }
+  const refs = masterHasReferences(db, id);
+  if (refs.any) {
+    return disableMaster(db, id);
+  }
   try {
     db.prepare("DELETE FROM masters WHERE id = ?").run(id);
+    return { ok: true, deleted: true };
   } catch (error) {
     if (isForeignKeyConstraint(error)) {
-      throw new HttpError(409, "IN_USE", "Нельзя удалить мастера, пока на него есть записи");
+      return disableMaster(db, id);
     }
     throw error;
   }

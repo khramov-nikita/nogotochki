@@ -33,8 +33,12 @@ function appointmentServices(db, appointmentId) {
   return db
     .prepare(
       `
-      SELECT s.id, s.slug, s.name, s.description, s.price_rub, s.price_rub_alt,
-             s.duration_min_minutes, s.duration_max_minutes, s.is_addon, s.is_bookable,
+      SELECT s.id, s.slug, s.name, s.description,
+             COALESCE(aps.price_rub, s.price_rub) AS price_rub,
+             s.price_rub_alt,
+             COALESCE(aps.duration_min_minutes, s.duration_min_minutes) AS duration_min_minutes,
+             COALESCE(aps.duration_max_minutes, s.duration_max_minutes) AS duration_max_minutes,
+             s.is_addon, s.is_bookable, s.is_active,
              s.validity_months, s.image_path, s.sort_order
       FROM appointment_services aps
       JOIN services s ON s.id = aps.service_id
@@ -194,14 +198,35 @@ export function insertAppointment(db, spec) {
     );
   const appointmentId = Number(result.lastInsertRowid);
   const serviceIds = spec.serviceIds ?? (spec.serviceId != null ? [spec.serviceId] : []);
+  const loadService = db.prepare(
+    `
+    SELECT price_rub, duration_min_minutes, duration_max_minutes
+    FROM services
+    WHERE id = ?
+    `,
+  );
   const insertService = db.prepare(
     `
-    INSERT OR IGNORE INTO appointment_services (appointment_id, service_id, sort_order)
-    VALUES (?, ?, ?)
+    INSERT OR IGNORE INTO appointment_services (
+      appointment_id, service_id, sort_order,
+      price_rub, duration_min_minutes, duration_max_minutes
+    )
+    VALUES (?, ?, ?, ?, ?, ?)
     `,
   );
   serviceIds.forEach((serviceId, index) => {
-    insertService.run(appointmentId, serviceId, index + 1);
+    const service = loadService.get(serviceId);
+    if (!service) {
+      throw new HttpError(400, "VALIDATION_ERROR", "Услуга не найдена");
+    }
+    insertService.run(
+      appointmentId,
+      serviceId,
+      index + 1,
+      service.price_rub,
+      service.duration_min_minutes,
+      service.duration_max_minutes,
+    );
   });
   return appointmentId;
 }

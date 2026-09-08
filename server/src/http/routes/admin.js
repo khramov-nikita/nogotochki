@@ -47,8 +47,7 @@ router.patch("/services/:id", (req, res) => {
 
 router.delete("/services/:id", (req, res) => {
   const id = parseId(req.params.id, "id");
-  deleteService(id);
-  res.json({ ok: true });
+  res.json(deleteService(id));
 });
 
 router.get("/masters", (_req, res) => {
@@ -66,8 +65,7 @@ router.patch("/masters/:id", (req, res) => {
 
 router.delete("/masters/:id", (req, res) => {
   const id = parseId(req.params.id, "id");
-  deleteMaster(id);
-  res.json({ ok: true });
+  res.json(deleteMaster(id));
 });
 
 export default router;

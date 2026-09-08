@@ -1,4 +1,133 @@
-.nav a[aria-current="page"] {
-  text-decoration: underline;
-  text-underline-offset: var(--spacing-4);
+.admin-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--spacing-16);
+  width: 100%;
+}
+
+.admin-toolbar .booking-intro {
+  flex: 1 1 calc(var(--spacing-80) * 4);
+}
+
+.admin-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-16);
+  width: 100%;
+}
+
+.admin-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--spacing-12);
+  width: 100%;
+  padding: var(--spacing-16);
+  background: var(--color-bg-canvas);
+  border: var(--spacing-2) solid var(--color-border-subtle);
+}
+
+.admin-card--off {
+  background: var(--color-bg-subtle);
+}
+
+.admin-card__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--spacing-16);
+  width: 100%;
+}
+
+.admin-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-8);
+}
+
+.admin-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-8);
+  width: 100%;
+}
+
+.admin-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--spacing-4) var(--spacing-8);
+  border: var(--spacing-2) solid var(--color-border-subtle);
+  font-family: var(--font-body);
+  font-size: var(--font-size-meta);
+  line-height: var(--line-height-meta);
+  color: var(--color-text-secondary);
+}
+
+.admin-form {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--spacing-24);
+  width: 100%;
+}
+
+.admin-flags {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-8);
+  width: 100%;
+}
+
+.admin-flag {
+  display: flex;
+  width: 100%;
+  padding: var(--spacing-8) var(--radius-none);
+  cursor: pointer;
+}
+
+.admin-flag .booking-check {
+  padding: var(--radius-none);
+}
+
+.admin-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--spacing-16);
+  width: 100%;
+}
+
+.admin-schedule {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-12);
+  align-self: stretch;
+  width: 100%;
+}
+
+.admin-schedule__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) auto;
+  gap: var(--spacing-8);
+  align-items: end;
+  width: 100%;
+}
+
+.admin-schedule__row .field {
+  min-width: 0;
+}
+
+.admin-form .input,
+.admin-form select.input {
+  width: 100%;
+}
+
+.admin-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-16);
+  width: 100%;
 }

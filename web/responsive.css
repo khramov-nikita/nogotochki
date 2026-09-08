@@ -385,4 +385,9 @@
   .visit-row__value {
     text-align: left;
   }
+
+  .admin-pair,
+  .admin-schedule__row {
+    grid-template-columns: 1fr;
+  }
 }

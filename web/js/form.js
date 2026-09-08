@@ -109,6 +109,22 @@ export function fieldsFromApiError(error) {
   if (/email/i.test(message) || /почт/i.test(message)) {
     fields.push("email");
   }
+  if (/название|name/i.test(message)) {
+    fields.push("name");
+  }
+  if (/slug/i.test(message)) {
+    fields.push("slug");
+  }
+  if (/цена|price_rub/i.test(message)) {
+    fields.push("price_rub");
+  }
+  if (/длительность|duration/i.test(message)) {
+    fields.push("duration_min_minutes");
+    fields.push("duration_max_minutes");
+  }
+  if (/специализац|specialization/i.test(message)) {
+    fields.push("specialization_label");
+  }
   return fields;
 }
 

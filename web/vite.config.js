@@ -1,9 +1,14 @@
 import http from "node:http";
 import { defineConfig } from "vite";
 
+function isAdminHtmlPath(url) {
+  const path = String(url || "").split("?")[0];
+  return /^\/admin(?:\/(?:services|masters))?\/?$/.test(path);
+}
+
 function proxyAdminToApi(req, res, next) {
   const url = req.url || "";
-  if (!url.startsWith("/admin")) {
+  if (!isAdminHtmlPath(url)) {
     next();
     return;
   }

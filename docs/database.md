@@ -2,7 +2,7 @@
 
 Живой журнал реализации SQLite. Модель таблиц и инварианты — в [`docs/db-schema.md`](db-schema.md). Этот файл — как это устроено в коде, чем пользовались, что ломалось и что нужно на BeGet.
 
-**Для следующей сессии ИИ:** прочитай `cloud.md`, этот файл, затем `docs/db-schema.md`. Не выдумывай таблицу свободных слотов. Не открывай SQLite мимо `server/src/db/connection.js`. HTTP API записи — `server/src/http/` и `server/src/domain/`. Продуктовый клиентский UI — `web/*.html` (Vite только как dev-сервер и прокси `/api`). Черновой hash-UI — `web/src/`, `web/test.html`, не расширяй. Админ-панель — следующая итерация. Локальный запуск для человека — `README.md`.
+**Для следующей сессии ИИ:** прочитай `cloud.md`, этот файл, затем `docs/db-schema.md`. Не выдумывай таблицу свободных слотов. Не открывай SQLite мимо `server/src/db/connection.js`. HTTP API записи — `server/src/http/` и `server/src/domain/`. Продуктовый клиентский UI — `web/*.html` (Vite только как dev-сервер и прокси `/api`). Черновой hash-UI — `web/src/`, `web/test.html`, не расширяй. Админ-панель: услуги и мастера готовы; записи ещё заглушка. Локальный запуск для человека — `README.md`.
 
 Дополняй разделы «Журнал» и «Открытые вопросы» по мере работы. Не копируй сюда полный DDL — он в миграциях.
 
@@ -31,6 +31,7 @@
 | [`server/migrations/001_init.sql`](../server/migrations/001_init.sql) | DDL этих 17 таблиц + UNIQUE + FK + индексы §8 |
 | [`server/migrations/003_overlap_override.sql`](../server/migrations/003_overlap_override.sql) | Колонка `overlap_override`; триггер пропускает только NEW=1 |
 | [`server/migrations/004_roles.sql`](../server/migrations/004_roles.sql) | `roles`, `client_roles`, `masters.client_id` |
+| [`server/migrations/005_appointment_service_snapshots.sql`](../server/migrations/005_appointment_service_snapshots.sql) | `services.is_active`; снимок цены и длительности в `appointment_services` |
 | [`server/src/db/connection.js`](../server/src/db/connection.js) | Единственное открытие файла SQLite, `PRAGMA foreign_keys = ON` |
 | [`server/src/db/migrate.js`](../server/src/db/migrate.js) | Накат `*.sql` по порядку, учёт в `schema_migrations` |
 | [`server/src/db/seed.js`](../server/src/db/seed.js) | Справочники паспорта: 7 услуг, 3 мастера, FAQ/политика |
@@ -56,7 +57,7 @@
 | Кабинет | те же записи; адрес студии — `studio_settings.exact_address` и **только** при статусе `confirmed` |
 | «Сессия истекла» | просроченный `sessions`; состав услуг — живой холд по `hold_token` |
 
-Сертификат в прайсе (`is_bookable = 0`), в степпер не кладётся. Дизайн ногтей — добавка (`is_addon = 1`), не отдельный визит. Имя мастера на экране: `masters.display_name` или «Мастер студии», ФИО не выдумывать. Цену и длительность визита не копировать в запись — JOIN на `services`.
+Сертификат в прайсе (`is_bookable = 0`), в степпер не кладётся. Отключённая услуга (`is_active = 0`) не попадает в `GET /api/services` и в запись. Дизайн ногтей — добавка (`is_addon = 1`), не отдельный визит. Имя мастера на экране: `masters.display_name` или «Мастер студии», ФИО не выдумывать. Цена и длительность уже оформленного визита — снимок в `appointment_services`; актуальный прайс — в `services`.
 
 ### Даты
 
@@ -209,6 +210,9 @@ npm test            # расчёт окон + сценарии /api
 | 2026-08-26 | `README.md` в корне: установка Git/Node, `.env` от корня репозитория, два процесса (API и Vite), тестовые учётки. |
 | 2026-09-03 | Продуктовый клиентский UI в `web/*.html` (лендинг, auth, степпер записи, кабинет). Hash-черновик `web/src/` не продукт. Админ-панель отложена на следующую итерацию. |
 | 2026-09-07 | Каркас админки: HTML `GET /admin`, `/admin/services`, `/admin/masters` (пустые Записи / Услуги / Мастера). Доступ по `hasRole(..., administrator)`: гость — на вход, клиент — 403 HTML «Этот раздел только для администраторов». JSON `/api/admin/*` по-прежнему за `requireAdmin`. CRUD списков в этом срезе нет. |
+| 2026-09-07 | Админка услуг и мастеров: список / форма / вкл-выкл / удаление. Миграция `005_appointment_service_snapshots.sql`: `services.is_active`, снимок `price_rub` и `duration_*` в `appointment_services`. DELETE без ссылок стирает строку; при записях или живом холде — отключает и объясняет. Клиенту отключённые позиции в записи не показываются. |
+| 2026-09-08 | Услуги и мастера редактируются из админ-панели: `/admin/services` и `/admin/masters` (список, форма, вкл/выкл, удаление). |
+| 2026-09-08 | Запись хранит цену и длительность услуги на момент оформления: снимок в `appointment_services` (`price_rub`, `duration_min_minutes`, `duration_max_minutes`). Смена прайса не переписывает уже созданные визиты. |
 
 ## HTTP API
 
@@ -221,7 +225,7 @@ npm test            # расчёт окон + сценарии /api
 | POST | `/api/auth/login` | публичный, rate limit по `req.ip` | Вход |
 | POST | `/api/auth/logout` | сессия | Выход, гасит строку `sessions` |
 | GET | `/api/auth/me` | сессия | Текущий клиент без хеша пароля, `roles` |
-| GET | `/api/services` | публичный | Прайс |
+| GET | `/api/services` | публичный | Прайс, только `is_active = 1` |
 | GET | `/api/masters` | публичный | Активные мастера; `service_ids` — умеет весь набор |
 | GET | `/api/masters/:id/availability` | публичный | Свободные старты на `date=YYYY-MM-DD` с длительностью услуг |
 | POST | `/api/holds` | гость или сессия | Удержать слот на `reserve_minutes` |
@@ -241,4 +245,4 @@ npm test            # расчёт окон + сценарии /api
 
 - Прод: один процесс Node на BeGet, путь к файлу БД вне деплоя, бэкап файла. Не Vercel.
 - Кабинет сотрудника как отдельный продукт по-прежнему вне v1. Не добавлять `clients.role`; роли — список в `client_roles`.
-- Клиентский UI собран в `web/*.html`. Каркас `/admin` закрыт ролью `administrator`; наполнение записей, услуг и мастеров ещё не сверстано.
+- Клиентский UI собран в `web/*.html`. Каркас `/admin` закрыт ролью `administrator`. Услуги и мастера наполнены (список, форма, вкл/выкл, удаление со снимком цены в записи). Экран записей админа ещё заглушка.
