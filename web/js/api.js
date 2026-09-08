@@ -21,6 +21,7 @@ export async function api(path, options = {}) {
       method: options.method || "GET",
       headers,
       credentials: "same-origin",
+      cache: "no-store",
       body: options.body == null || typeof options.body === "string" ? options.body : JSON.stringify(options.body),
     });
   } catch {
@@ -154,6 +155,14 @@ export function logout() {
   return api("/api/auth/logout", { method: "POST" });
 }
 
+export function listNotifications() {
+  return api("/api/notifications");
+}
+
+export function markNotificationRead(id) {
+  return api(`/api/notifications/${id}/read`, { method: "POST" });
+}
+
 export async function adminListServices() {
   const body = await api("/api/admin/services");
   return body.services || [];
@@ -186,4 +195,52 @@ export function adminUpdateMaster(id, payload) {
 
 export function adminDeleteMaster(id) {
   return api(`/api/admin/masters/${id}`, { method: "DELETE" });
+}
+
+export function adminListAppointments({ date, masterId, scope } = {}) {
+  const params = new URLSearchParams();
+  if (date) {
+    params.set("date", date);
+  }
+  if (masterId) {
+    params.set("master_id", String(masterId));
+  }
+  if (scope) {
+    params.set("scope", scope);
+  }
+  const query = params.toString();
+  return api(query ? `/api/admin/appointments?${query}` : "/api/admin/appointments");
+}
+
+export function adminConfirmAppointment(id) {
+  return api(`/api/admin/appointments/${id}`, {
+    method: "PATCH",
+    body: { status: "confirmed" },
+  });
+}
+
+export function adminCreateAppointment(payload) {
+  return api("/api/admin/appointments", { method: "POST", body: payload });
+}
+
+export function adminCancelAppointment(id, reason) {
+  return api(`/api/admin/appointments/${id}/cancel`, {
+    method: "POST",
+    body: { reason },
+  });
+}
+
+export function adminRescheduleAppointment(id, payload) {
+  return api(`/api/admin/appointments/${id}/reschedule`, {
+    method: "POST",
+    body: payload,
+  });
+}
+
+export function adminCreateTimeBlock(payload) {
+  return api("/api/admin/time-blocks", { method: "POST", body: payload });
+}
+
+export function adminDeleteTimeBlock(id) {
+  return api(`/api/admin/time-blocks/${id}`, { method: "DELETE" });
 }

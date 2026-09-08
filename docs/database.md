@@ -2,7 +2,7 @@
 
 Живой журнал реализации SQLite. Модель таблиц и инварианты — в [`docs/db-schema.md`](db-schema.md). Этот файл — как это устроено в коде, чем пользовались, что ломалось и что нужно на BeGet.
 
-**Для следующей сессии ИИ:** прочитай `cloud.md`, этот файл, затем `docs/db-schema.md`. Не выдумывай таблицу свободных слотов. Не открывай SQLite мимо `server/src/db/connection.js`. HTTP API записи — `server/src/http/` и `server/src/domain/`. Продуктовый клиентский UI — `web/*.html` (Vite только как dev-сервер и прокси `/api`). Черновой hash-UI — `web/src/`, `web/test.html`, не расширяй. Админ-панель: услуги и мастера готовы; записи ещё заглушка. Локальный запуск для человека — `README.md`.
+**Для следующей сессии ИИ:** прочитай `cloud.md`, этот файл, затем `docs/db-schema.md`. Не выдумывай таблицу свободных слотов. Не открывай SQLite мимо `server/src/db/connection.js`. HTTP API записи — `server/src/http/` и `server/src/domain/`. Продуктовый клиентский UI — `web/*.html` (Vite только как dev-сервер и прокси `/api`). Черновой hash-UI — `web/src/`, `web/test.html`, не расширяй. Админ-панель: услуги, мастера и записи (`/admin`) живые. Локальный запуск для человека — `README.md`.
 
 Дополняй разделы «Журнал» и «Открытые вопросы» по мере работы. Не копируй сюда полный DDL — он в миграциях.
 
@@ -32,6 +32,8 @@
 | [`server/migrations/003_overlap_override.sql`](../server/migrations/003_overlap_override.sql) | Колонка `overlap_override`; триггер пропускает только NEW=1 |
 | [`server/migrations/004_roles.sql`](../server/migrations/004_roles.sql) | `roles`, `client_roles`, `masters.client_id` |
 | [`server/migrations/005_appointment_service_snapshots.sql`](../server/migrations/005_appointment_service_snapshots.sql) | `services.is_active`; снимок цены и длительности в `appointment_services` |
+| [`server/migrations/006_admin_appointments.sql`](../server/migrations/006_admin_appointments.sql) | Журнал отмены/переноса; `master_time_blocks.kind` |
+| [`server/migrations/007_notifications_body.sql`](../server/migrations/007_notifications_body.sql) | `notifications.body`, тип `overlapping` |
 | [`server/src/db/connection.js`](../server/src/db/connection.js) | Единственное открытие файла SQLite, `PRAGMA foreign_keys = ON` |
 | [`server/src/db/migrate.js`](../server/src/db/migrate.js) | Накат `*.sql` по порядку, учёт в `schema_migrations` |
 | [`server/src/db/seed.js`](../server/src/db/seed.js) | Справочники паспорта: 7 услуг, 3 мастера, FAQ/политика |
@@ -182,7 +184,7 @@ npm test            # расчёт окон + сценарии /api
 9. Админ-доступ — роль `administrator` в `client_roles`, не список почт и не колонка `clients.role`.
 10. Пересечение визитов одного мастера закрывают триггеры `appointments_no_overlap_*` и `BEGIN IMMEDIATE`. Текст SQLite клиенту не отдаём.
 11. Наложение поверх чужого визита — только `overlap_override=1` и роль `administrator` в списке. Чужой INSERT всё равно видит эту запись как занятость.
-12. Единственный INSERT записи — `insertAppointment` в `server/src/domain/appointments.js`. Клиентский HTTP: `POST /api/appointments` → `createAppointment`. Перенос — `rescheduleAppointment`, отмена — `cancelAppointment`. Кабинета мастера и админской отмены/переноса чужих визитов в паспорте нет — не добавлять.
+12. Единственный INSERT записи — `insertAppointment` в `server/src/domain/appointments.js`. Клиентский HTTP: `POST /api/appointments` → `createAppointment`. Перенос — `rescheduleAppointment`, отмена — `cancelAppointment`. Админ создаёт визит существующему клиенту через `POST /api/admin/appointments` (без холда); чужие отмена и перенос — `POST /api/admin/appointments/:id/cancel|reschedule` на той же строке.
 
 ---
 
@@ -213,6 +215,41 @@ npm test            # расчёт окон + сценарии /api
 | 2026-09-07 | Админка услуг и мастеров: список / форма / вкл-выкл / удаление. Миграция `005_appointment_service_snapshots.sql`: `services.is_active`, снимок `price_rub` и `duration_*` в `appointment_services`. DELETE без ссылок стирает строку; при записях или живом холде — отключает и объясняет. Клиенту отключённые позиции в записи не показываются. |
 | 2026-09-08 | Услуги и мастера редактируются из админ-панели: `/admin/services` и `/admin/masters` (список, форма, вкл/выкл, удаление). |
 | 2026-09-08 | Запись хранит цену и длительность услуги на момент оформления: снимок в `appointment_services` (`price_rub`, `duration_min_minutes`, `duration_max_minutes`). Смена прайса не переписывает уже созданные визиты. |
+| 2026-09-08 | Админ-экран записей `/admin`: день студии, фильтр мастера, отмена/перенос чужого визита, блокировки `master_time_blocks`, создание поверх занятого слота после предупреждения. Миграция `006_admin_appointments.sql`. |
+| 2026-09-08 | Лента уведомлений кабинета: `GET /api/notifications` + `unread_count`, `POST …/read`. Миграция `007_notifications_body.sql`. Пишутся только админская отмена/перенос и наложение слота. |
+| 2026-09-08 | Зафиксированы соответствие админ → кабинет, события ленты и прогон сценариев (см. разделы ниже). Старый процесс API без `body`/`overlapping` давал пустые строки — после перезапуска `:3000` сценарии зелёные. |
+
+### Админ и чужая запись → что видит клиент
+
+| Действие администратора | Что происходит с записью | Что видит клиент в кабинете |
+|---|---|---|
+| Подтвердить предоплату | Та же строка → `confirmed` | Активные; адрес студии доступен |
+| Отменить (`POST …/cancel`, причина обязательна) | Та же строка → `cancelled`, слот свободен, строка не удаляется | История, бейдж «отменена»; уведомление `cancelled` |
+| Перенести (`POST …/reschedule`) | Та же строка, новый интервал, `previous_*`, статус `rescheduled` | Активные, бейдж «перенесена», новое время; уведомление `rescheduled` |
+| Создать визит существующему клиенту | Новый `pending_prepayment` без холда | Активные у этого клиента (отдельного «вас записали» нет) |
+| Создать поверх занятого слота (`overlap_override`) | Новая строка + пометка «два визита» у пары | Владелец **старой** записи: уведомление `overlapping`; у новой записи о бронировании уведомления нет |
+| Блокировка времени мастера | Строка в `master_time_blocks` | Окно пропадает из доступности при записи; своей записи у клиента нет |
+
+Клиентская отмена/перенос своей записи кабинет обновляют как раньше, **без** строк в `notifications`.
+
+### Уведомления: когда создаются
+
+| Событие | Кому | `type` | Пример `body` |
+|---|---|---|---|
+| Админ отменил чужой визит | `appointment.client_id` | `cancelled` | `Запись на четверг, 14:00 отменена студией.` |
+| Админ перенёс чужой визит | владелец записи | `rescheduled` | `Запись на четверг, 14:00 перенесена на пятницу, 11:00.` |
+| Админ создал поверх с `overlap_override` | владельцы **уже существующих** пересекающихся визитов (не клиент новой записи; тот же клиент, если оба визита его — без дубля) | `overlapping` | `На ваше время четверг, 14:00 поставили ещё одну запись.` |
+
+Не пишутся: клиентская запись / отмена / перенос, `confirm`, `reserve_expiring`. Лента: `GET /api/notifications` (+ `unread_count`), `POST /api/notifications/:id/read`. Ссылка — `/cabinet-appointment.html?id=…`.
+
+### Проверенные сценарии (2026-09-08)
+
+1. Админ отменил чужую запись → одна строка с текстом «отменена студией», счётчик +1.
+2. Админ перенёс чужую запись → одна строка «перенесена на…», та же `appointment_id`.
+3. Админ создал поверх занятого времени → уведомление у владельца старой записи; у нового клиента типа `overlapping` нет.
+4. Переход по `href` открывает детали нужной записи.
+5. После `POST …/read` `unread_count` уменьшается на 1 (клик в UI сначала читает, потом навигирует).
+6. Регрессия: `npm test` в `server/` — 37/37.
 
 ## HTTP API
 
@@ -236,8 +273,14 @@ npm test            # расчёт окон + сценарии /api
 | GET | `/api/appointments/:id` | сессия + право видеть | Детали; адрес только при `confirmed` |
 | POST | `/api/appointments/:id/reschedule` | владелец | Перенос той же строки |
 | POST | `/api/appointments/:id/cancel` | владелец | Отмена по правилу §5.1 |
-| GET | `/api/admin/appointments` | роль `administrator` | Все записи |
+| GET | `/api/notifications` | сессия | Лента кабинета + `unread_count` |
+| POST | `/api/notifications/:id/read` | владелец строки | Пометить прочитанным |
+| GET | `/api/admin/appointments` | роль `administrator` | Все записи или день `date` + `master_id`; ещё `time_blocks`, `timezone` |
+| POST | `/api/admin/appointments` | роль `administrator` | Создать визит существующему клиенту (`client_email`); `overlap_override` после 409 |
 | PATCH | `/api/admin/appointments/:id` | роль `administrator` | `status=confirmed` |
+| POST | `/api/admin/appointments/:id/cancel` | роль `administrator` | Отмена чужой записи (`reason`); строка остаётся |
+| POST | `/api/admin/appointments/:id/reschedule` | роль `administrator` | Перенос той же строки |
+| POST/DELETE | `/api/admin/time-blocks` | роль `administrator` | Перерыв / выходной / отпуск мастера |
 | GET/POST/PATCH/DELETE | `/api/admin/services` | роль `administrator` | Прайс |
 | GET/POST/PATCH/DELETE | `/api/admin/masters` | роль `administrator` | Мастера, `service_ids`, график |
 
@@ -245,4 +288,4 @@ npm test            # расчёт окон + сценарии /api
 
 - Прод: один процесс Node на BeGet, путь к файлу БД вне деплоя, бэкап файла. Не Vercel.
 - Кабинет сотрудника как отдельный продукт по-прежнему вне v1. Не добавлять `clients.role`; роли — список в `client_roles`.
-- Клиентский UI собран в `web/*.html`. Каркас `/admin` закрыт ролью `administrator`. Услуги и мастера наполнены (список, форма, вкл/выкл, удаление со снимком цены в записи). Экран записей админа ещё заглушка.
+- Клиентский UI собран в `web/*.html`. Каркас `/admin` закрыт ролью `administrator`. Услуги, мастера и записи наполнены.

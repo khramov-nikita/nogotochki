@@ -61,6 +61,31 @@ export function emptyMarkup(text) {
   </div>`;
 }
 
+export function selectMarkup({ name, label, value = "", options = [], required = false }) {
+  const req = required ? " required" : "";
+  return `<div class="field" data-field="${escapeHtml(name)}">
+    <label class="label-caps" for="${escapeHtml(name)}">${escapeHtml(label)}</label>
+    <select class="input" id="${escapeHtml(name)}" name="${escapeHtml(name)}"${req}>
+      ${options
+        .map((opt) => {
+          const selected = String(opt.value) === String(value) ? " selected" : "";
+          return `<option value="${escapeHtml(opt.value)}"${selected}>${escapeHtml(opt.label)}</option>`;
+        })
+        .join("")}
+    </select>
+    <p class="field-error" data-error-for="${escapeHtml(name)}"></p>
+  </div>`;
+}
+
+export function textareaMarkup({ name, label, value = "", required = false, rows = 3 }) {
+  const req = required ? " required" : "";
+  return `<div class="field" data-field="${escapeHtml(name)}">
+    <label class="label-caps" for="${escapeHtml(name)}">${escapeHtml(label)}</label>
+    <textarea class="input" id="${escapeHtml(name)}" name="${escapeHtml(name)}" rows="${rows}"${req}>${escapeHtml(value)}</textarea>
+    <p class="field-error" data-error-for="${escapeHtml(name)}"></p>
+  </div>`;
+}
+
 export function fieldMarkup({ name, label, type = "text", value = "", required = false, extra = "" }) {
   const req = required ? " required" : "";
   return `<div class="field" data-field="${escapeHtml(name)}">

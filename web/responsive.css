@@ -316,9 +316,29 @@
     min-height: var(--spacing-48);
   }
 
-  .appointment-card__head {
+  .appointment-card__head,
+  .admin-card__head {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .admin-list--day > .admin-card {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .admin-list--day > .admin-card > .heading-4 {
+    grid-column: 1;
+  }
+
+  .admin-list--day > .admin-card > .admin-chips {
+    grid-column: 2;
+  }
+
+  .admin-list--day > .admin-card > .body-small,
+  .admin-list--day > .admin-card > .meta,
+  .admin-list--day > .admin-card > .appointment-card__actions,
+  .admin-list--day > .admin-card > .admin-card__actions {
+    grid-column: 1 / -1;
   }
 
   .appointment-card__actions {
@@ -379,7 +399,7 @@
   }
 
   .visit-row {
-    flex-wrap: wrap;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .visit-row__value {

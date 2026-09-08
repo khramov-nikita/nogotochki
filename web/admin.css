@@ -16,14 +16,22 @@
   flex-direction: column;
   gap: var(--spacing-16);
   width: 100%;
+  min-width: 0;
+}
+
+#admin-root {
+  width: 100%;
+  min-width: 0;
 }
 
 .admin-card {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: stretch;
   gap: var(--spacing-12);
   width: 100%;
+  min-width: 0;
+  max-width: 100%;
   padding: var(--spacing-16);
   background: var(--color-bg-canvas);
   border: var(--spacing-2) solid var(--color-border-subtle);
@@ -46,6 +54,8 @@
   flex-wrap: wrap;
   align-items: center;
   gap: var(--spacing-8);
+  width: 100%;
+  min-width: 0;
 }
 
 .admin-chips {
@@ -53,6 +63,56 @@
   flex-wrap: wrap;
   gap: var(--spacing-8);
   width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.admin-card__head .admin-chips {
+  width: auto;
+  flex: 0 1 auto;
+  justify-content: flex-end;
+}
+
+.admin-card__head .heading-4,
+.admin-card p,
+.admin-list--day .heading-4 {
+  min-width: 0;
+  overflow-wrap: break-word;
+}
+
+.admin-list--day > .admin-card {
+  display: grid;
+  grid-template-columns:
+    var(--spacing-96)
+    minmax(0, 1.1fr)
+    minmax(0, 1.4fr)
+    calc(var(--spacing-80) + var(--spacing-32));
+  align-items: start;
+  column-gap: var(--spacing-16);
+  row-gap: var(--spacing-12);
+}
+
+.admin-list--day > .admin-card > .heading-4 {
+  grid-column: 1;
+}
+
+.admin-list--day > .admin-card > .body-small {
+  grid-column: 2;
+}
+
+.admin-list--day > .admin-card > .meta {
+  grid-column: 3;
+}
+
+.admin-list--day > .admin-card > .admin-chips {
+  grid-column: 4;
+  justify-content: flex-start;
+  align-self: start;
+}
+
+.admin-list--day > .admin-card > .appointment-card__actions,
+.admin-list--day > .admin-card > .admin-card__actions {
+  grid-column: 1 / -1;
 }
 
 .admin-chip {
@@ -130,4 +190,46 @@
   align-items: center;
   gap: var(--spacing-16);
   width: 100%;
+}
+
+.admin-daybar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--spacing-12);
+  width: 100%;
+}
+
+.admin-date-nav {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-8);
+}
+
+.admin-date-nav .input {
+  width: auto;
+}
+
+.admin-daybar .field {
+  flex: 1 1 calc(var(--spacing-80) * 2);
+  min-width: 0;
+}
+
+.admin-card--cancelled {
+  background: var(--color-bg-subtle);
+}
+
+.admin-overlap {
+  border-color: var(--color-border-danger);
+}
+
+.admin-kind-fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-16);
+  width: 100%;
+}
+
+.time-slot--busy {
+  background: var(--color-fill-slot-unavailable);
 }

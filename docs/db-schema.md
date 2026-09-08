@@ -85,7 +85,7 @@
 | Перенос | Календарь как шаг 3, без `Timer` гостя; при смене мастера («Другой мастер») обновляется `master_id` | Расчёт окон, исключая **текущую** запись. Успех: новые `starts_at`/`ends_at`, статус `rescheduled`. |
 | Перенос / нет слотов | Empty | Расчёт пустой. |
 | Профиль | Почта, опционально имя, смена пароля (текущий / новый / повтор) | `clients.email`, `display_name`; смена пишет новый `password_hash` и гасит прочие `sessions`. |
-| Уведомления | Пять типов; пустой список — empty в том же лейауте | `notifications` + JOIN записи или холда. Текст пункта собирает приложение по `type`, не хранится в строке. |
+| Уведомления | Лента с `body`; cancelled / rescheduled / overlapping | `notifications`; `GET /api/notifications` + `unread_count` |
 | Правила отмены и переноса | FAQ без выдуманных «за 24 часа» и штрафов | `content_pages` (`slug = 'cancellation_rules'`) + `content_page_items`. |
 
 Повтор из истории открывает степпер с теми же `service_id`; мастер — `appointments.master_id`, только если `is_active = 1` и он всё ещё делает набор. Это **новая** запись, не воскрешение старой.
@@ -457,7 +457,7 @@ CHECK (status IN (
 
 Сиды разработки: `admin@nogotochki.test` → `administrator`; `master@nogotochki.test` → `master` и `masters.client_id` на мастера `id=1`; `client@nogotochki.test` → `client`. Регистрация выдаёт роль `client`.
 
-Видимость записей — объединение ролей: клиент видит свои (`appointments.client_id`); мастер — записи своего графика (`master_id`); администратор — все. Отмена и перенос в v1 остаются у владельца записи; подтверждение (`confirmed`) — у администратора.
+Видимость записей — объединение ролей: клиент видит свои (`appointments.client_id`); мастер — записи своего графика (`master_id`); администратор — все. Клиент отменяет и переносит только свою запись. Администратор может отменить и перенести чужой визит через `/api/admin/appointments/:id/cancel|reschedule` (та же строка). Подтверждение (`confirmed`) — у администратора.
 
 ### 6.6. `sessions`
 
@@ -592,10 +592,11 @@ UNIQUE (`master_id`, `weekday`, `start_time`) — одно окно не дуб�
 | `master_id` | INTEGER | да | FK → `masters.id` ON DELETE CASCADE | |
 | `starts_at` | TEXT | да | | ISO 8601 UTC. CHECK (`ends_at > starts_at`) |
 | `ends_at` | TEXT | да | | ISO 8601 UTC, конец **не входит** (`[starts_at, ends_at)`). Выходной день: `day_start` … `day_end` следующих суток |
-| `reason` | TEXT | нет | | Для сидов и будущей админки. Клиенту не показывать |
+| `reason` | TEXT | нет | | Комментарий админки. Клиенту не показывать |
 | `created_at` | TEXT | да | | ISO 8601 UTC |
+| `kind` | TEXT | да | | `break` / `day_off` / `vacation`. Не путать с `masters.is_active` |
 
-Это **занятые** интервалы, не каталог свободных слотов.
+Это **занятые** интервалы, не каталог свободных слотов. CRUD — `POST/DELETE /api/admin/time-blocks`.
 
 ### 6.13. `booking_holds`
 
@@ -652,10 +653,16 @@ UNIQUE (`master_id`, `weekday`, `start_time`) — одно окно не дуб�
 | `cancelled_at` | TEXT | нет | | Когда статус стал `cancelled` |
 | `rescheduled_at` | TEXT | нет | | Когда последний раз перенесли |
 | `expired_at` | TEXT | нет | | Когда статус стал `expired` |
+| `cancelled_by_client_id` | INTEGER | нет | | Кто отменил (клиент или администратор) |
+| `cancel_reason` | TEXT | нет | | Почему отменили; для админской отмены обязателен |
+| `previous_starts_at` | TEXT | нет | | Откуда перенесли (последний перенос) |
+| `previous_ends_at` | TEXT | нет | | Конец прежнего интервала |
+| `previous_master_id` | INTEGER | нет | | Прежний мастер |
+| `rescheduled_by_client_id` | INTEGER | нет | | Кто перенёс |
 
 Сумма и длительность на экранах: Σ снимка `appointment_services.price_rub` и `duration_*`. Не дублировать итог в строке `appointments`.
 
-Перенос **не** создаёт вторую строку: меняются `starts_at`/`ends_at`, статус → `rescheduled`, пишется `rescheduled_at`. Старый интервал свободен сам собой.
+Перенос **не** создаёт вторую строку: меняются `starts_at`/`ends_at`, статус → `rescheduled`, пишется `rescheduled_at`, прежний интервал уходит в `previous_*`. Старый интервал свободен сам собой. Админ переносит через `POST /api/admin/appointments/:id/reschedule` (одно уведомление `rescheduled`). Отмена админом — `POST /api/admin/appointments/:id/cancel`: статус `cancelled`, строка остаётся.
 
 Повтор из истории создаёт **новую** строку.
 
@@ -679,15 +686,16 @@ UNIQUE (`master_id`, `weekday`, `start_time`) — одно окно не дуб�
 
 ### 6.17. `notifications`
 
-**Назначение.** Лента уведомлений кабинета. Событие и ссылка на запись или холд. Заголовок и текст **не** хранятся: UI собирает их по `type` из записи/холда.
+**Назначение.** Лента уведомлений кабинета. Текст события хранится в `body`. Ссылка на визит — `appointment_id`.
 
 | Поле | Тип | Обязательное | Ключ | Описание |
 |---|---|---|---|---|
 | `id` | INTEGER | да | PK | |
-| `client_id` | INTEGER | да | FK → `clients.id` ON DELETE CASCADE | Владелец ленты. Не копия полей визита: без этой колонки список «мои уведомления» требует UNION по записи и холду |
-| `appointment_id` | INTEGER | нет | FK → `appointments.id` ON DELETE CASCADE | Визит для confirmed / reminder / cancelled / rescheduled. CASCADE: иначе SET NULL ломает CHECK «есть запись или холд» |
-| `booking_hold_id` | INTEGER | нет | FK → `booking_holds.id` ON DELETE CASCADE | Только `reserve_expiring`. CASCADE: удаление холда (подтверждение или истечение) убирает уведомление, не оставляет пустую ссылку |
+| `client_id` | INTEGER | да | FK → `clients.id` ON DELETE CASCADE | Владелец ленты |
+| `appointment_id` | INTEGER | нет | FK → `appointments.id` ON DELETE CASCADE | Визит для cancelled / rescheduled / overlapping (и устаревших типов) |
+| `booking_hold_id` | INTEGER | нет | FK → `booking_holds.id` ON DELETE CASCADE | Только устаревший `reserve_expiring`; новые строки не пишем |
 | `type` | TEXT | да | CHECK | См. ниже |
+| `body` | TEXT | да | | Готовый текст для ленты (конкретно что изменилось) |
 | `is_read` | INTEGER | да | | `0` / `1` |
 | `created_at` | TEXT | да | | ISO 8601 UTC, сортировка ленты |
 
@@ -699,17 +707,18 @@ CHECK (type IN (
   'reminder',
   'cancelled',
   'rescheduled',
-  'reserve_expiring'
+  'reserve_expiring',
+  'overlapping'
 ))
 ```
 
-| type | Когда появляется |
+| type | Когда появляется в прототипе |
 |---|---|
-| `confirmed` | Статус записи стал `confirmed` (в деталях появляется адрес) |
-| `reminder` | Напоминание о визите |
-| `cancelled` | Запись отменена |
-| `rescheduled` | Запись перенесена |
-| `reserve_expiring` | Живой холд, клиент уже вошёл; `booking_hold_id` задан |
+| `cancelled` | Администратор отменил чужую запись |
+| `rescheduled` | Администратор перенёс чужую запись |
+| `overlapping` | Администратор создал другую запись на то же время (владельцу уже существующего визита) |
+
+Клиентская запись / отмена / перенос, подтверждение предоплаты и `reserve_expiring` **не** создают уведомления: пользователь сам только что сделал действие. Типы `confirmed`, `reminder`, `reserve_expiring` остаются в CHECK для старых строк.
 
 Пустой список уведомлений — состояние UI, без отдельной таблицы.
 
@@ -723,7 +732,7 @@ CHECK (type IN (
 | Название и флаг добавки услуги | `services` (`name`, `is_addon`) | `appointment_services.service_id` и `booking_hold_services.service_id` |
 | Цена и длительность уже оформленного визита | снимок в `appointment_services` (`price_rub`, `duration_min_minutes`, `duration_max_minutes`) на момент `insertAppointment` | актуальный прайс остаётся в `services`; холд по-прежнему читает живой прайс |
 | Сумма и длительность визита | Считаются: Σ по услугам записи | В `appointments` нет `total_price_rub` и `duration_*` |
-| Текст уведомления (услуги, дата, мастер) | Запись / холд + словарь подписей по `type` в приложении | `notifications.appointment_id` или `booking_hold_id`, плюс `type` |
+| Текст уведомления | `notifications.body` | UI не собирает фразу по словарю `type` |
 | Точный адрес студии | `studio_settings.exact_address` | В записи адреса нет; показ, если `status = 'confirmed'` |
 | Длительность резерва | `studio_settings.reserve_minutes` | У холда только свой `expires_at` (момент конца **этого** резерва; настройка могла смениться) |
 
@@ -877,6 +886,9 @@ erDiagram
     integer appointment_id FK
     integer booking_hold_id FK
     text type
+    text body
+    integer is_read
+    text created_at
   }
   content_pages ||--o{ content_page_items : has
   clients ||--o{ sessions : has

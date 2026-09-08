@@ -1,4 +1,4 @@
-import { ApiError, getMe, logout } from "./api.js";
+import { ApiError, getMe, listNotifications, logout } from "./api.js";
 import { escapeHtml } from "./format.js";
 import { currentPageForNext, hasAdministratorRole, isAdminPath } from "./store.js";
 
@@ -89,17 +89,38 @@ function guestAccountMarkup({ register = true } = {}) {
   return `<div class="header-account">${login}${extra}</div>`;
 }
 
-function loggedInAccountMarkup(client) {
+function loggedInAccountMarkup(client, { unreadCount = 0 } = {}) {
   const label = clientLabel(client);
   const initials = clientInitials(client);
   const home = isAdminPath() && hasAdministratorRole(client) ? "/admin" : "/cabinet.html";
+  const showNotif = !isAdminPath();
+  const badge =
+    showNotif && unreadCount > 0
+      ? `<span class="header-notifications__count" aria-label="${unreadCount} непрочитанных">${unreadCount > 99 ? "99+" : unreadCount}</span>`
+      : "";
+  const notifications = showNotif
+    ? `<a class="header-notifications" href="/cabinet-notifications.html">Уведомления${badge}</a>`
+    : "";
   return `<div class="header-account">
+        ${notifications}
         <a class="header-user" href="${home}">
           <span class="header-avatar" aria-hidden="true">${escapeHtml(initials)}</span>
           <span class="header-user-name">${escapeHtml(label)}</span>
         </a>
         <button type="button" class="header-login header-logout">Выйти</button>
       </div>`;
+}
+
+async function unreadCountFor(client) {
+  if (!client || isAdminPath()) {
+    return 0;
+  }
+  try {
+    const body = await listNotifications();
+    return Number(body.unread_count) || 0;
+  } catch {
+    return 0;
+  }
 }
 
 function bindLogout(root) {
@@ -268,7 +289,8 @@ export async function mountHeader(root) {
   header.innerHTML = `${navMarkup(client)}<div class="header-account"></div>`;
   root.replaceWith(header);
 
-  const account = client ? loggedInAccountMarkup(client) : guestAccountMarkup();
+  const unreadCount = await unreadCountFor(client);
+  const account = client ? loggedInAccountMarkup(client, { unreadCount }) : guestAccountMarkup();
   const slot = header.querySelector(".header-account");
   if (slot) {
     slot.outerHTML = account;
@@ -294,7 +316,8 @@ async function applySessionToStaticHeader(header) {
         }
       }
       const login = header.querySelector(":scope > .header-login, .header-account");
-      const markup = loggedInAccountMarkup(body.client);
+      const unreadCount = await unreadCountFor(body.client);
+      const markup = loggedInAccountMarkup(body.client, { unreadCount });
       if (login) {
         login.outerHTML = markup;
       } else {

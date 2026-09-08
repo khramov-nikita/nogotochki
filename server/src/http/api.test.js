@@ -891,3 +891,400 @@ test("error handler does not echo sqlite or file paths", async () => {
   }
 });
 
+test("admin cancels another client's visit without deleting the row", async () => {
+  const admin = await api("/api/auth/login", {
+    method: "POST",
+    body: JSON.stringify({ email: "admin@nogotochki.test", password: "DevAdmin123!" }),
+  });
+  const client = await api("/api/auth/login", {
+    method: "POST",
+    body: JSON.stringify({ email: "client@nogotochki.test", password: "DevClient123!" }),
+  });
+  const open = await firstOpenSlot(1, [1]);
+  const created = await api("/api/admin/appointments", {
+    method: "POST",
+    token: admin.body.token,
+    body: JSON.stringify({
+      client_email: "client@nogotochki.test",
+      master_id: 1,
+      service_ids: [1],
+      starts_at: open.slot.starts_at,
+    }),
+  });
+  assert.equal(created.status, 201);
+  const visit = created.body.appointment;
+  const localDate = ymdInTimeZone(new Date(visit.starts_at), TIMEZONE);
+
+  const denied = await api(`/api/admin/appointments/${visit.id}/cancel`, {
+    method: "POST",
+    token: client.body.token,
+    body: JSON.stringify({ reason: "клиент просит" }),
+  });
+  assert.equal(denied.status, 403);
+
+  const cancelled = await api(`/api/admin/appointments/${visit.id}/cancel`, {
+    method: "POST",
+    token: admin.body.token,
+    body: JSON.stringify({ reason: "клиент не выходит на связь" }),
+  });
+  assert.equal(cancelled.status, 200);
+  assert.equal(cancelled.body.appointment.status, "cancelled");
+  assert.equal(cancelled.body.appointment.id, visit.id);
+  assert.equal(cancelled.body.appointment.cancel_reason, "клиент не выходит на связь");
+  assert.equal(cancelled.body.appointment.cancelled_by.email, "admin@nogotochki.test");
+
+  const feed = await api("/api/notifications", { token: client.body.token });
+  assert.equal(feed.status, 200);
+  const cancelNote = feed.body.notifications.find(
+    (row) => row.appointment_id === visit.id && row.type === "cancelled",
+  );
+  assert.ok(cancelNote);
+  assert.match(cancelNote.body, /отменена студией/);
+  assert.equal(cancelNote.is_read, false);
+  assert.ok(feed.body.unread_count >= 1);
+
+  const read = await api(`/api/notifications/${cancelNote.id}/read`, {
+    method: "POST",
+    token: client.body.token,
+  });
+  assert.equal(read.status, 200);
+  assert.equal(read.body.notification.is_read, true);
+
+  const day = await api(`/api/admin/appointments?date=${localDate}`, { token: admin.body.token });
+  assert.equal(day.status, 200);
+  const listed = day.body.appointments.find((row) => row.id === visit.id);
+  assert.ok(listed);
+  assert.equal(listed.status, "cancelled");
+
+  const history = await api("/api/appointments?scope=history", { token: client.body.token });
+  assert.equal(history.status, 200);
+  const inCabinet = history.body.appointments.find((row) => row.id === visit.id);
+  assert.ok(inCabinet);
+  assert.equal(inCabinet.status, "cancelled");
+
+  const hold = await api("/api/holds", {
+    method: "POST",
+    token: client.body.token,
+    body: JSON.stringify({
+      master_id: 1,
+      service_ids: [1],
+      starts_at: visit.starts_at,
+    }),
+  });
+  assert.equal(hold.status, 201);
+});
+
+test("client cancel stays on the admin day list as cancelled", async () => {
+  const admin = await api("/api/auth/login", {
+    method: "POST",
+    body: JSON.stringify({ email: "admin@nogotochki.test", password: "DevAdmin123!" }),
+  });
+  const client = await api("/api/auth/login", {
+    method: "POST",
+    body: JSON.stringify({ email: "client@nogotochki.test", password: "DevClient123!" }),
+  });
+  const open = await firstOpenSlot(1, [1]);
+  const hold = await api("/api/holds", {
+    method: "POST",
+    token: client.body.token,
+    body: JSON.stringify({
+      master_id: 1,
+      service_ids: [1],
+      starts_at: open.slot.starts_at,
+    }),
+  });
+  assert.equal(hold.status, 201);
+  const created = await api("/api/appointments", {
+    method: "POST",
+    token: client.body.token,
+    body: JSON.stringify({ hold_token: hold.body.hold.hold_token }),
+  });
+  assert.equal(created.status, 201);
+  const visit = created.body.appointment;
+  const localDate = ymdInTimeZone(new Date(visit.starts_at), TIMEZONE);
+
+  const cancelled = await api(`/api/appointments/${visit.id}/cancel`, {
+    method: "POST",
+    token: client.body.token,
+  });
+  assert.equal(cancelled.status, 200);
+  assert.equal(cancelled.body.appointment.status, "cancelled");
+  assert.equal(cancelled.body.appointment.id, visit.id);
+  assert.equal(cancelled.body.appointment.cancelled_by.email, "client@nogotochki.test");
+
+  const day = await api(`/api/admin/appointments?date=${localDate}`, { token: admin.body.token });
+  assert.equal(day.status, 200);
+  const listed = day.body.appointments.find((row) => row.id === visit.id);
+  assert.ok(listed);
+  assert.equal(listed.status, "cancelled");
+});
+
+test("admin reschedule keeps the same appointment id and one notification", async () => {
+  const admin = await api("/api/auth/login", {
+    method: "POST",
+    body: JSON.stringify({ email: "admin@nogotochki.test", password: "DevAdmin123!" }),
+  });
+  const client = await api("/api/auth/login", {
+    method: "POST",
+    body: JSON.stringify({ email: "client@nogotochki.test", password: "DevClient123!" }),
+  });
+  const open = await firstOpenSlot(1, [1]);
+  const created = await api("/api/admin/appointments", {
+    method: "POST",
+    token: admin.body.token,
+    body: JSON.stringify({
+      client_email: "client@nogotochki.test",
+      master_id: 1,
+      service_ids: [1],
+      starts_at: open.slot.starts_at,
+    }),
+  });
+  assert.equal(created.status, 201);
+  const visit = created.body.appointment;
+  let startsAt = null;
+  let ymd = ymdInTimeZone(new Date(), TIMEZONE);
+  for (let i = 0; i < 21; i += 1) {
+    if (isoWeekday(ymd) !== 7) {
+      const later = await api(
+        `/api/masters/1/availability?date=${ymd}&service_ids=1&exclude_appointment_id=${visit.id}`,
+      );
+      const other = (later.body.slots || []).find((slot) => slot.starts_at !== visit.starts_at);
+      if (other) {
+        startsAt = other.starts_at;
+        break;
+      }
+    }
+    ymd = addDaysYmd(ymd, 1);
+  }
+  assert.ok(startsAt);
+  assert.notEqual(startsAt, visit.starts_at);
+
+  const moved = await api(`/api/admin/appointments/${visit.id}/reschedule`, {
+    method: "POST",
+    token: admin.body.token,
+    body: JSON.stringify({ starts_at: startsAt }),
+  });
+  assert.equal(moved.status, 200);
+  assert.equal(moved.body.appointment.id, visit.id);
+  assert.equal(moved.body.appointment.status, "rescheduled");
+  assert.equal(moved.body.appointment.starts_at, startsAt);
+  assert.equal(moved.body.appointment.previous_starts_at, visit.starts_at);
+  assert.equal(moved.body.appointment.rescheduled_by.email, "admin@nogotochki.test");
+
+  const notes = getDb()
+    .prepare("SELECT type, body FROM notifications WHERE appointment_id = ? ORDER BY id")
+    .all(visit.id);
+  const rescheduledNotes = notes.filter((row) => row.type === "rescheduled");
+  assert.equal(rescheduledNotes.length, 1);
+  assert.match(rescheduledNotes[0].body, /перенесена на/);
+  assert.equal(notes.some((row) => row.type === "cancelled"), false);
+
+  const active = await api("/api/appointments?scope=active", { token: client.body.token });
+  const same = active.body.appointments.find((row) => row.id === visit.id);
+  assert.ok(same);
+  assert.equal(same.starts_at, startsAt);
+});
+
+test("client cancel and reschedule do not create notifications", async () => {
+  const client = await api("/api/auth/login", {
+    method: "POST",
+    body: JSON.stringify({ email: "client@nogotochki.test", password: "DevClient123!" }),
+  });
+  const open = await firstOpenSlot(1, [1]);
+  const hold = await api("/api/holds", {
+    method: "POST",
+    token: client.body.token,
+    body: JSON.stringify({ master_id: 1, service_ids: [1], starts_at: open.slot.starts_at }),
+  });
+  assert.equal(hold.status, 201);
+  const created = await api("/api/appointments", {
+    method: "POST",
+    token: client.body.token,
+    body: JSON.stringify({ hold_token: hold.body.hold.hold_token }),
+  });
+  assert.equal(created.status, 201);
+  const visit = created.body.appointment;
+  const before = getDb()
+    .prepare("SELECT COUNT(*) AS n FROM notifications WHERE appointment_id = ?")
+    .get(visit.id).n;
+
+  let startsAt = null;
+  let ymd = ymdInTimeZone(new Date(), TIMEZONE);
+  for (let i = 0; i < 21; i += 1) {
+    if (isoWeekday(ymd) !== 7) {
+      const later = await api(
+        `/api/masters/1/availability?date=${ymd}&service_ids=1&exclude_appointment_id=${visit.id}`,
+      );
+      const other = (later.body.slots || []).find((slot) => slot.starts_at !== visit.starts_at);
+      if (other) {
+        startsAt = other.starts_at;
+        break;
+      }
+    }
+    ymd = addDaysYmd(ymd, 1);
+  }
+  assert.ok(startsAt);
+  const moved = await api(`/api/appointments/${visit.id}/reschedule`, {
+    method: "POST",
+    token: client.body.token,
+    body: JSON.stringify({ starts_at: startsAt }),
+  });
+  assert.equal(moved.status, 200);
+  const cancelled = await api(`/api/appointments/${visit.id}/cancel`, {
+    method: "POST",
+    token: client.body.token,
+  });
+  assert.equal(cancelled.status, 200);
+  const after = getDb()
+    .prepare("SELECT COUNT(*) AS n FROM notifications WHERE appointment_id = ?")
+    .get(visit.id).n;
+  assert.equal(after, before);
+});
+
+test("admin overlap notifies the owner of the existing visit", async () => {
+  const admin = await api("/api/auth/login", {
+    method: "POST",
+    body: JSON.stringify({ email: "admin@nogotochki.test", password: "DevAdmin123!" }),
+  });
+  const client = await api("/api/auth/login", {
+    method: "POST",
+    body: JSON.stringify({ email: "client@nogotochki.test", password: "DevClient123!" }),
+  });
+  const other = await api("/api/auth/register", {
+    method: "POST",
+    body: JSON.stringify({
+      email: `overlap.peer.${Date.now()}@nogotochki.test`,
+      password: "DevClient123!",
+      password_confirmation: "DevClient123!",
+    }),
+  });
+  assert.equal(other.status, 201);
+  const mine = await api("/api/appointments?scope=active", { token: client.body.token });
+  const busy = mine.body.appointments.find(
+    (row) => row.status === "pending_prepayment" || row.status === "confirmed" || row.status === "rescheduled",
+  );
+  assert.ok(busy);
+
+  const created = await api("/api/admin/appointments", {
+    method: "POST",
+    token: admin.body.token,
+    body: JSON.stringify({
+      client_email: other.body.client.email,
+      master_id: busy.master.id,
+      service_ids: [busy.services[0].id],
+      starts_at: busy.starts_at,
+      overlap_override: true,
+    }),
+  });
+  assert.equal(created.status, 201);
+
+  const feed = await api("/api/notifications", { token: client.body.token });
+  const note = feed.body.notifications.find(
+    (row) => row.appointment_id === busy.id && row.type === "overlapping",
+  );
+  assert.ok(note);
+  assert.match(note.body, /поставили ещё одну запись/);
+  assert.equal(note.href, `/cabinet-appointment.html?id=${busy.id}`);
+
+  const otherFeed = await api("/api/notifications", { token: other.body.token });
+  assert.equal(
+    (otherFeed.body.notifications || []).some((row) => row.type === "overlapping"),
+    false,
+  );
+});
+
+test("admin time block hides the slot from the client", async () => {
+  const admin = await api("/api/auth/login", {
+    method: "POST",
+    body: JSON.stringify({ email: "admin@nogotochki.test", password: "DevAdmin123!" }),
+  });
+  const open = await firstOpenSlot(1, [1]);
+  const created = await api("/api/admin/time-blocks", {
+    method: "POST",
+    token: admin.body.token,
+    body: JSON.stringify({
+      master_id: 1,
+      kind: "break",
+      date: open.date,
+      start_time: open.slot.starts_local,
+      end_time: "18:00",
+    }),
+  });
+  assert.equal(created.status, 201);
+  assert.equal(created.body.time_block.kind, "break");
+
+  const after = await api(`/api/masters/1/availability?date=${open.date}&service_ids=1`);
+  assert.equal(after.status, 200);
+  assert.equal(
+    (after.body.slots || []).some((slot) => slot.starts_at === open.slot.starts_at),
+    false,
+  );
+
+  const day = await api(`/api/admin/appointments?date=${open.date}&master_id=1`, {
+    token: admin.body.token,
+  });
+  assert.ok(day.body.time_blocks.some((row) => row.id === created.body.time_block.id));
+
+  const removed = await api(`/api/admin/time-blocks/${created.body.time_block.id}`, {
+    method: "DELETE",
+    token: admin.body.token,
+  });
+  assert.equal(removed.status, 200);
+  assert.equal(removed.body.deleted, true);
+});
+
+test("admin create on a busy slot warns then overlaps after confirmation", async () => {
+  const admin = await api("/api/auth/login", {
+    method: "POST",
+    body: JSON.stringify({ email: "admin@nogotochki.test", password: "DevAdmin123!" }),
+  });
+  const client = await api("/api/auth/login", {
+    method: "POST",
+    body: JSON.stringify({ email: "client@nogotochki.test", password: "DevClient123!" }),
+  });
+  const mine = await api("/api/appointments?scope=active", { token: client.body.token });
+  const busy = mine.body.appointments[0];
+  assert.ok(busy);
+
+  const blocked = await api("/api/admin/appointments", {
+    method: "POST",
+    token: admin.body.token,
+    body: JSON.stringify({
+      client_email: "client@nogotochki.test",
+      master_id: busy.master.id,
+      service_ids: [busy.services[0].id],
+      starts_at: busy.starts_at,
+    }),
+  });
+  assert.equal(blocked.status, 409);
+  assert.equal(blocked.body.error.code, "SLOT_TAKEN");
+
+  const created = await api("/api/admin/appointments", {
+    method: "POST",
+    token: admin.body.token,
+    body: JSON.stringify({
+      client_email: "client@nogotochki.test",
+      master_id: busy.master.id,
+      service_ids: [busy.services[0].id],
+      starts_at: busy.starts_at,
+      overlap_override: true,
+    }),
+  });
+  assert.equal(created.status, 201);
+  assert.equal(created.body.appointment.overlap_override, true);
+  assert.equal(created.body.appointment.overlapping, true);
+
+  const localDate = ymdInTimeZone(new Date(busy.starts_at), TIMEZONE);
+  const day = await api(
+    `/api/admin/appointments?date=${localDate}&master_id=${busy.master.id}`,
+    { token: admin.body.token },
+  );
+  const pair = day.body.appointments.filter(
+    (row) =>
+      (row.id === busy.id || row.id === created.body.appointment.id) &&
+      (row.status === "pending_prepayment" || row.status === "confirmed" || row.status === "rescheduled"),
+  );
+  assert.equal(pair.length, 2);
+  assert.ok(pair.every((row) => row.overlapping));
+});
+

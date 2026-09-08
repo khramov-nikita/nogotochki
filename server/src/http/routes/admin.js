@@ -9,7 +9,14 @@ import {
   updateMaster,
   updateService,
 } from "../../domain/admin.js";
-import { confirmAppointment, listAllAppointments } from "../../domain/appointments.js";
+import {
+  cancelAdminAppointment,
+  confirmAppointment,
+  createAdminAppointment,
+  listAllAppointments,
+  rescheduleAdminAppointment,
+} from "../../domain/appointments.js";
+import { createTimeBlock, deleteTimeBlock } from "../../domain/time-blocks.js";
 import { parseId, requireBodyObject } from "../../domain/validate.js";
 import { HttpError } from "../errors.js";
 import { requireAdmin } from "../middleware/auth.js";
@@ -19,8 +26,16 @@ const router = express.Router();
 router.use(requireAdmin);
 
 router.get("/appointments", (req, res) => {
-  const scope = req.query.scope ? String(req.query.scope) : null;
-  res.json({ appointments: listAllAppointments(scope) });
+  const result = listAllAppointments({
+    scope: req.query.scope ? String(req.query.scope) : null,
+    date: req.query.date ? String(req.query.date) : null,
+    masterId: req.query.master_id || null,
+  });
+  res.json(result);
+});
+
+router.post("/appointments", (req, res) => {
+  res.status(201).json({ appointment: createAdminAppointment(req.body, req.client) });
 });
 
 router.patch("/appointments/:id", (req, res) => {
@@ -30,6 +45,25 @@ router.patch("/appointments/:id", (req, res) => {
     throw new HttpError(400, "VALIDATION_ERROR", "Можно выставить только status=confirmed");
   }
   res.json({ appointment: confirmAppointment(id) });
+});
+
+router.post("/appointments/:id/cancel", (req, res) => {
+  const id = parseId(req.params.id, "id");
+  res.json({ appointment: cancelAdminAppointment(id, req.body, req.client) });
+});
+
+router.post("/appointments/:id/reschedule", (req, res) => {
+  const id = parseId(req.params.id, "id");
+  res.json({ appointment: rescheduleAdminAppointment(id, req.body, req.client) });
+});
+
+router.post("/time-blocks", (req, res) => {
+  res.status(201).json({ time_block: createTimeBlock(req.body) });
+});
+
+router.delete("/time-blocks/:id", (req, res) => {
+  const id = parseId(req.params.id, "id");
+  res.json(deleteTimeBlock(id));
 });
 
 router.get("/services", (_req, res) => {

@@ -147,6 +147,14 @@ export function parseOptionalText(value, field, { max = 2000 } = {}) {
   return text || null;
 }
 
+export function parseRequiredText(value, field, { max = 2000 } = {}) {
+  const text = parseOptionalText(value, field, { max });
+  if (!text) {
+    throw new HttpError(400, "VALIDATION_ERROR", `Укажите ${field}`);
+  }
+  return text;
+}
+
 export function parseHoldToken(value) {
   const token = parseOptionalToken(value);
   if (!token) {

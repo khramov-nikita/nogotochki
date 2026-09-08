@@ -23,12 +23,85 @@
 
     <main class="booking-main">
       <div class="booking-column">
-        <div class="booking-intro">
-          <h1 class="heading-1">Записи</h1>
-          <p class="body-medium">Все визиты студии. Подтверждение предоплаты появится здесь.</p>
+        <div id="admin-root">
+          <div class="booking-intro">
+            <h1 class="heading-1">Записи</h1>
+            <p class="body-medium">Загрузка визитов студии…</p>
+          </div>
         </div>
       </div>
     </main>
+
+    <div class="cabinet-modal-overlay" id="cancel-overlay" hidden>
+      <div class="cabinet-modal" role="dialog" aria-modal="true" aria-labelledby="cancel-title">
+        <div class="cabinet-modal__head">
+          <h2 class="heading-3" id="cancel-title">Отменить запись?</h2>
+          <button class="cabinet-modal__close" type="button" data-cancel-dismiss aria-label="Закрыть">
+            <span class="icon icon--close" aria-hidden="true"></span>
+          </button>
+        </div>
+        <div class="cabinet-modal__body">
+          <p class="body-medium">Запись останется в списке со статусом «отменена». Слот освободится.</p>
+          <div class="field" data-field="reason">
+            <label class="label-caps" for="cancel-reason">Почему отменяете</label>
+            <textarea class="input" id="cancel-reason" name="reason" rows="3" required></textarea>
+            <p class="field-error" data-error-for="reason"></p>
+          </div>
+          <div class="banner banner--warning" id="cancel-warning" hidden>
+            <span class="icon icon--alert" aria-hidden="true"></span>
+            <p class="body-small"></p>
+          </div>
+        </div>
+        <div class="cabinet-modal__actions">
+          <button class="button button--ghost button--large" type="button" data-cancel-dismiss>Закрыть</button>
+          <button class="button button--danger button--large" type="button" id="cancel-confirm">Отменить запись</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="cabinet-modal-overlay" id="overlap-overlay" hidden>
+      <div class="cabinet-modal" role="dialog" aria-modal="true" aria-labelledby="overlap-title">
+        <div class="cabinet-modal__head">
+          <h2 class="heading-3" id="overlap-title">Время уже занято</h2>
+          <button class="cabinet-modal__close" type="button" data-overlap-dismiss aria-label="Закрыть">
+            <span class="icon icon--close" aria-hidden="true"></span>
+          </button>
+        </div>
+        <div class="cabinet-modal__body">
+          <p class="body-medium" id="overlap-body">На это время уже есть запись. Создать вторую поверх занятого слота?</p>
+          <div class="banner banner--warning" id="overlap-warning">
+            <span class="icon icon--alert" aria-hidden="true"></span>
+            <p class="body-small">Это время уже занято</p>
+          </div>
+        </div>
+        <div class="cabinet-modal__actions">
+          <button class="button button--ghost button--large" type="button" data-overlap-dismiss>Закрыть</button>
+          <button class="button button--primary button--large" type="button" id="overlap-confirm">Создать поверх</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="cabinet-modal-overlay" id="delete-overlay" hidden>
+      <div class="cabinet-modal" role="dialog" aria-modal="true" aria-labelledby="delete-title">
+        <div class="cabinet-modal__head">
+          <h2 class="heading-3" id="delete-title">Снять блокировку?</h2>
+          <button class="cabinet-modal__close" type="button" data-delete-dismiss aria-label="Закрыть">
+            <span class="icon icon--close" aria-hidden="true"></span>
+          </button>
+        </div>
+        <div class="cabinet-modal__body">
+          <p class="body-medium" id="delete-body">Мастер останется в списке. Закрытые часы снова станут доступны клиенту.</p>
+          <div class="banner banner--warning" id="delete-warning" hidden>
+            <span class="icon icon--alert" aria-hidden="true"></span>
+            <p class="body-small"></p>
+          </div>
+        </div>
+        <div class="cabinet-modal__actions">
+          <button class="button button--ghost button--large" type="button" data-delete-dismiss>Закрыть</button>
+          <button class="button button--primary button--large" type="button" id="delete-confirm">Снять</button>
+        </div>
+      </div>
+    </div>
 
     <footer class="footer">
       <div class="footer-cols">
@@ -62,5 +135,6 @@
     </footer>
 
     <script type="module" src="/js/header.js"></script>
+    <script type="module" src="/js/admin-appointments.js"></script>
   </body>
 </html>

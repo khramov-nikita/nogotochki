@@ -10,7 +10,7 @@ import {
   visitDurationMinutes,
   visitPriceRub,
 } from "./catalog.js";
-import { addNotification, purgeExpiredHolds } from "./cleanup.js";
+import { purgeExpiredHolds } from "./cleanup.js";
 import { getStudioSettings } from "./settings.js";
 import { addMinutesIso, nowUtcIso } from "./time.js";
 import {
@@ -86,21 +86,6 @@ export function attachHoldToClient(db, holdToken, clientId) {
     nowUtcIso(),
     hold.id,
   );
-  const existing = db
-    .prepare(
-      `
-      SELECT id FROM notifications
-      WHERE booking_hold_id = ? AND type = 'reserve_expiring'
-      `,
-    )
-    .get(hold.id);
-  if (!existing) {
-    addNotification(db, {
-      clientId,
-      bookingHoldId: hold.id,
-      type: "reserve_expiring",
-    });
-  }
 }
 
 export function createHold(body, clientId = null, actor = null) {
@@ -166,14 +151,6 @@ export function createHold(body, clientId = null, actor = null) {
     serviceIds.forEach((serviceId, index) => {
       insertService.run(holdId, serviceId, index + 1);
     });
-
-    if (clientId) {
-      addNotification(db, {
-        clientId,
-        bookingHoldId: holdId,
-        type: "reserve_expiring",
-      });
-    }
 
     const hold = db.prepare("SELECT * FROM booking_holds WHERE id = ?").get(holdId);
     return serializeHold(db, hold);
