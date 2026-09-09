@@ -1288,3 +1288,118 @@ test("admin create on a busy slot warns then overlaps after confirmation", async
   assert.ok(pair.every((row) => row.overlapping));
 });
 
+test("yandex login returns 501 when stub is off", async () => {
+  const previous = process.env.YANDEX_OAUTH_STUB;
+  delete process.env.YANDEX_OAUTH_STUB;
+  try {
+    const result = await api("/api/auth/yandex", {
+      method: "POST",
+      body: JSON.stringify({}),
+    });
+    assert.equal(result.status, 501);
+    assert.equal(result.body.error.code, "YANDEX_NOT_CONFIGURED");
+  } finally {
+    if (previous === undefined) {
+      delete process.env.YANDEX_OAUTH_STUB;
+    } else {
+      process.env.YANDEX_OAUTH_STUB = previous;
+    }
+  }
+});
+
+test("yandex stub creates client with role client and issues session", async () => {
+  process.env.YANDEX_OAUTH_STUB = "1";
+  process.env.YANDEX_STUB_EMAIL = "yandex-new@nogotochki.test";
+  process.env.YANDEX_STUB_NAME = "Яндекс Новый";
+  process.env.YANDEX_STUB_PROVIDER_ID = "yandex-new-1";
+
+  const first = await api("/api/auth/yandex", {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
+  assert.equal(first.status, 200);
+  assertNoSecrets(first.body);
+  assert.equal(first.body.client.email, "yandex-new@nogotochki.test");
+  assert.equal(first.body.client.display_name, "Яндекс Новый");
+  assert.deepEqual(first.body.client.roles, ["client"]);
+  assert.ok(first.body.token);
+
+  const row = getDb()
+    .prepare(
+      "SELECT password_hash, provider, provider_id FROM clients WHERE email = ?",
+    )
+    .get("yandex-new@nogotochki.test");
+  assert.equal(row.password_hash, null);
+  assert.equal(row.provider, "yandex");
+  assert.equal(row.provider_id, "yandex-new-1");
+
+  const second = await api("/api/auth/yandex", {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
+  assert.equal(second.status, 200);
+  assert.equal(second.body.client.id, first.body.client.id);
+
+  const count = getDb()
+    .prepare("SELECT COUNT(*) AS n FROM clients WHERE email = ?")
+    .get("yandex-new@nogotochki.test");
+  assert.equal(count.n, 1);
+
+  const passwordLogin = await api("/api/auth/login", {
+    method: "POST",
+    body: JSON.stringify({
+      email: "yandex-new@nogotochki.test",
+      password: "Whatever12",
+    }),
+  });
+  assert.equal(passwordLogin.status, 400);
+  assert.equal(passwordLogin.body.error.code, "YANDEX_LOGIN_ONLY");
+
+  const available = await api("/api/auth/password-login-available", {
+    method: "POST",
+    body: JSON.stringify({ email: "yandex-new@nogotochki.test" }),
+  });
+  assert.equal(available.status, 400);
+  assert.equal(available.body.error.code, "YANDEX_LOGIN_ONLY");
+
+  delete process.env.YANDEX_OAUTH_STUB;
+});
+
+test("yandex stub links existing password account without changing roles", async () => {
+  process.env.YANDEX_OAUTH_STUB = "1";
+  process.env.YANDEX_STUB_EMAIL = "admin@nogotochki.test";
+  process.env.YANDEX_STUB_NAME = "Админ Яндекс";
+  process.env.YANDEX_STUB_PROVIDER_ID = "yandex-admin-1";
+
+  const before = getDb()
+    .prepare("SELECT id, password_hash FROM clients WHERE email = ?")
+    .get("admin@nogotochki.test");
+  assert.ok(before.password_hash);
+
+  const result = await api("/api/auth/yandex", {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
+  assert.equal(result.status, 200);
+  assert.equal(result.body.client.id, before.id);
+  assert.ok(result.body.client.roles.includes("administrator"));
+
+  const after = getDb()
+    .prepare(
+      "SELECT password_hash, provider, provider_id FROM clients WHERE email = ?",
+    )
+    .get("admin@nogotochki.test");
+  assert.equal(after.password_hash, before.password_hash);
+  assert.equal(after.provider, "yandex");
+  assert.equal(after.provider_id, "yandex-admin-1");
+
+  const available = await api("/api/auth/password-login-available", {
+    method: "POST",
+    body: JSON.stringify({ email: "admin@nogotochki.test" }),
+  });
+  assert.equal(available.status, 200);
+  assert.equal(available.body.available, true);
+
+  delete process.env.YANDEX_OAUTH_STUB;
+});
+

@@ -1,10 +1,11 @@
-import { login } from "./api.js";
+import { checkPasswordLoginAvailable, login, loginWithYandex } from "./api.js";
 import { loadDraft, postAuthDestination, preserveNextOnLinks } from "./store.js";
 import {
   applyServerError,
   bindPasswordToggles,
   clearFormErrors,
   formValues,
+  setAlert,
   setFieldError,
   validateEmail,
   validatePassword,
@@ -12,9 +13,26 @@ import {
 
 const form = document.getElementById("login-form");
 const alertEl = document.getElementById("form-alert");
+const yandexButton = document.getElementById("yandex-login");
+const forgotLink = document.getElementById("forgot-password");
 
 bindPasswordToggles(form);
 preserveNextOnLinks();
+
+async function completeYandexLogin() {
+  clearFormErrors(form, alertEl);
+  try {
+    const payload = {};
+    const holdToken = loadDraft().holdToken;
+    if (holdToken) {
+      payload.hold_token = holdToken;
+    }
+    const body = await loginWithYandex(payload);
+    window.location.href = postAuthDestination(location.search, body?.client);
+  } catch (error) {
+    applyServerError(form, alertEl, error);
+  }
+}
 
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -49,6 +67,34 @@ form.addEventListener("submit", async (event) => {
     const body = await login(payload);
     window.location.href = postAuthDestination(location.search, body?.client);
   } catch (error) {
+    applyServerError(form, alertEl, error);
+  }
+});
+
+yandexButton?.addEventListener("click", () => {
+  void completeYandexLogin();
+});
+
+forgotLink?.addEventListener("click", async (event) => {
+  clearFormErrors(form, alertEl);
+  const values = formValues(form);
+  const emailError = validateEmail(values.email);
+  if (emailError) {
+    event.preventDefault();
+    setFieldError(form, "email", emailError);
+    setAlert(alertEl, "Укажите почту, чтобы восстановить пароль");
+    return;
+  }
+
+  event.preventDefault();
+  try {
+    await checkPasswordLoginAvailable(values.email.trim());
+    window.location.href = forgotLink.getAttribute("href") || "auth-reset-sent.html";
+  } catch (error) {
+    if (error?.code === "YANDEX_LOGIN_ONLY") {
+      setAlert(alertEl, error.message || "Вход в этот аккаунт выполняется через Яндекс");
+      return;
+    }
     applyServerError(form, alertEl, error);
   }
 });

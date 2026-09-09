@@ -52,10 +52,16 @@ export function applyMigrations() {
     }
 
     const sql = fs.readFileSync(path.join(MIGRATIONS_DIR, file), "utf8");
-    runInTransaction(db, () => {
-      db.exec(sql);
-      insert.run(file, nowUtc());
-    });
+    // FK нельзя переключать внутри транзакции; OFF нужен для DROP родительской таблицы (008).
+    db.exec("PRAGMA foreign_keys = OFF");
+    try {
+      runInTransaction(db, () => {
+        db.exec(sql);
+        insert.run(file, nowUtc());
+      });
+    } finally {
+      db.exec("PRAGMA foreign_keys = ON");
+    }
     count += 1;
     console.log(`applied ${file}`);
   }

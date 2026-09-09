@@ -1,5 +1,13 @@
 import express from "express";
-import { loginClient, logoutClient, publicClient, registerClient } from "../../domain/auth.js";
+import {
+  checkPasswordLoginAvailable,
+  loginClient,
+  loginOrLinkExternalProvider,
+  logoutClient,
+  publicClient,
+  registerClient,
+} from "../../domain/auth.js";
+import { fetchYandexUserProfile } from "../../domain/yandex-oauth.js";
 import { getConfig } from "../config.js";
 import { clearSessionCookie, setSessionCookie } from "../cookies.js";
 import { requireAuth } from "../middleware/auth.js";
@@ -26,6 +34,16 @@ router.post("/register", authRateLimit("register"), async (req, res) => {
 router.post("/login", authRateLimit("login"), async (req, res) => {
   const result = await loginClient(req.body, getConfig().sessionDays);
   sendSession(req, res, 200, result);
+});
+
+router.post("/yandex", authRateLimit("login"), async (req, res) => {
+  const profile = await fetchYandexUserProfile();
+  const result = loginOrLinkExternalProvider(profile, req.body, getConfig().sessionDays);
+  sendSession(req, res, 200, result);
+});
+
+router.post("/password-login-available", authRateLimit("login"), (req, res) => {
+  res.json(checkPasswordLoginAvailable(req.body));
 });
 
 router.post("/logout", requireAuth, (req, res) => {

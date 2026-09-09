@@ -52,7 +52,7 @@
 | Поток | Таблицы |
 |---|---|
 | Лендинг, каталоги, FAQ, политика | `studio_settings`, `services`, `masters`, `content_pages` + `content_page_items` |
-| Вход / регистрация / сброс пароля | `clients` (`password_hash` только), `sessions`, `password_reset_tokens` (хеш токена) |
+| Вход / регистрация / сброс пароля | `clients` (`password_hash` опционален; `provider`, `provider_id`), `sessions`, `password_reset_tokens` (хеш токена; reset-HTTP нет) |
 | Степпер 1–2 | `services` (`is_bookable`, `is_addon`), `masters` + `master_services` |
 | Степпер 3–4, таймер резерва | расчёт окон; выбор пишет `booking_holds` + `booking_hold_services` |
 | Подтверждение (нужен вход) | `appointments` сразу `pending_prepayment` + `appointment_services`; холд удаляется |
@@ -218,6 +218,7 @@ npm test            # расчёт окон + сценарии /api
 | 2026-09-08 | Админ-экран записей `/admin`: день студии, фильтр мастера, отмена/перенос чужого визита, блокировки `master_time_blocks`, создание поверх занятого слота после предупреждения. Миграция `006_admin_appointments.sql`. |
 | 2026-09-08 | Лента уведомлений кабинета: `GET /api/notifications` + `unread_count`, `POST …/read`. Миграция `007_notifications_body.sql`. Пишутся только админская отмена/перенос и наложение слота. |
 | 2026-09-08 | Зафиксированы соответствие админ → кабинет, события ленты и прогон сценариев (см. разделы ниже). Старый процесс API без `body`/`overlapping` давал пустые строки — после перезапуска `:3000` сценарии зелёные. |
+| 2026-09-09 | В проект добавлен вход через внешний сервис (Яндекс): миграция `008_oauth_clients.sql` (`password_hash` nullable, `provider` / `provider_id`), `POST /api/auth/yandex`, кнопка на экранах входа/регистрации, check `password-login-available` без reset-HTTP. Локальная проверка — заглушка `YANDEX_OAUTH_STUB`; **перед публикацией и на BeGet заглушку нужно отключить**. |
 
 ### Админ и чужая запись → что видит клиент
 
@@ -259,7 +260,9 @@ npm test            # расчёт окон + сценарии /api
 |---|---|---|---|
 | GET | `/api/health` | публичный | Жив ли процесс |
 | POST | `/api/auth/register` | публичный, rate limit по `req.ip` | Регистрация, сразу сессия, роль `client` |
-| POST | `/api/auth/login` | публичный, rate limit по `req.ip` | Вход |
+| POST | `/api/auth/login` | публичный, rate limit по `req.ip` | Вход; при `password_hash` NULL — `YANDEX_LOGIN_ONLY` |
+| POST | `/api/auth/yandex` | публичный, rate limit по `req.ip` | Вход/привязка через Яндекс (заглушка по `YANDEX_OAUTH_STUB`); сессия как у login |
+| POST | `/api/auth/password-login-available` | публичный, rate limit по `req.ip` | Проверка: есть ли пароль у почты (для «Забыли пароль?»); не reset-API |
 | POST | `/api/auth/logout` | сессия | Выход, гасит строку `sessions` |
 | GET | `/api/auth/me` | сессия | Текущий клиент без хеша пароля, `roles` |
 | GET | `/api/services` | публичный | Прайс, только `is_active = 1` |

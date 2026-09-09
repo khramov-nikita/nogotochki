@@ -15,8 +15,8 @@
 | Срез | Страницы | Что умеет |
 |---|---|---|
 | Лендинг | `index.html` | Hero, прайс и мастера с API, FAQ, CTA в запись |
-| Вход и регистрация | `auth.html`, `register.html` | Cookie-сессия. После входа с живым холдом — на проверку записи, иначе в кабинет |
-| Восстановление пароля | `auth-reset-sent.html`, `auth-new-password.html`, `auth-password-changed.html` | HTML есть; reset-HTTP ещё нет |
+| Вход и регистрация | `auth.html`, `register.html` | Cookie-сессия; кнопка «Войти через Яндекс» (заглушка через `YANDEX_OAUTH_STUB`). После входа с живым холдом — на проверку записи, иначе в кабинет |
+| Восстановление пароля | `auth-reset-sent.html`, `auth-new-password.html`, `auth-password-changed.html` | HTML есть; reset-HTTP ещё нет. У аккаунта без пароля «Забыли пароль?» показывает текст про вход через Яндекс |
 | Запись, шаги 1–5 | `booking.html` → `booking-master.html` → `booking-datetime.html` → `booking-review.html` → `booking-done.html` | Услуги, мастер, дата/время с холдом и таймером, проверка (гость / сессия), успех. «Слот занят» и «резерв истёк» — на тех же страницах |
 | Кабинет | `cabinet.html`, `cabinet-appointment.html`, `cabinet-reschedule.html`, `cabinet-rules.html` | Активные / история / пустой список, детали, отмена, перенос, правила |
 
@@ -75,6 +75,8 @@ cp .env.example .env
 ```
 
 Файл `.env` в git не коммитится. Менять значения для первого запуска не нужно: пароли тестовых учёток уже прописаны в примере. Поле `NODE_ENV` оставьте пустым.
+
+**Вход через Яндекс:** в `.env.example` есть `YANDEX_OAUTH_STUB` и поля тестового профиля. Это **временная заглушка** для локальной проверки, пока сервис не опубликован и приложение в Яндексе не зарегистрировано. По умолчанию заглушка **выключена**. На BeGet / production её **нельзя включать**. Когда будете готовы к настоящему OAuth, замените только тело `fetchYandexUserProfile` в `server/src/domain/yandex-oauth.js`.
 
 ### 3. API и база (терминал 1)
 

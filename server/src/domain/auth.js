@@ -111,8 +111,18 @@ export async function loginClient(body, sessionDays) {
   const holdToken = parseOptionalToken(payload.hold_token);
   const db = getDb();
   const row = db
-    .prepare("SELECT id, email, display_name, password_hash FROM clients WHERE email = ?")
+    .prepare(
+      "SELECT id, email, display_name, password_hash, provider FROM clients WHERE email = ?",
+    )
     .get(email);
+
+  if (row && !row.password_hash) {
+    throw new HttpError(
+      400,
+      "YANDEX_LOGIN_ONLY",
+      "Вход в этот аккаунт выполняется через Яндекс",
+    );
+  }
 
   const passwordOk = row ? await verifyPassword(password, row.password_hash) : false;
   if (!row || !passwordOk) {
@@ -128,6 +138,86 @@ export async function loginClient(body, sessionDays) {
       session,
     };
   });
+}
+
+const YANDEX_LOGIN_MESSAGE = "Вход в этот аккаунт выполняется через Яндекс";
+
+export function checkPasswordLoginAvailable(body) {
+  const payload = requireBodyObject(body);
+  const email = parseEmail(payload.email);
+  const db = getDb();
+  const row = db
+    .prepare("SELECT password_hash FROM clients WHERE email = ?")
+    .get(email);
+
+  if (row && !row.password_hash) {
+    throw new HttpError(400, "YANDEX_LOGIN_ONLY", YANDEX_LOGIN_MESSAGE);
+  }
+
+  return { available: true };
+}
+
+export function loginOrLinkExternalProvider(profile, body, sessionDays) {
+  const provider = String(profile?.provider || "").trim();
+  const providerId = String(profile?.provider_id || "").trim();
+  const email = parseEmail(profile?.email);
+  const displayName = parseOptionalName(profile?.display_name);
+  if (!provider || !providerId) {
+    throw new HttpError(500, "SERVER_ERROR", "Профиль внешнего входа неполный");
+  }
+
+  const payload = body == null ? {} : requireBodyObject(body);
+  const holdToken = parseOptionalToken(payload.hold_token);
+  const db = getDb();
+  const now = nowUtcIso();
+
+  try {
+    return runInTransaction(db, () => {
+      const existing = db
+        .prepare(
+          "SELECT id, email, display_name, password_hash, provider, provider_id FROM clients WHERE email = ?",
+        )
+        .get(email);
+
+      let clientId;
+      if (existing) {
+        clientId = existing.id;
+        db.prepare(
+          `
+          UPDATE clients
+          SET provider = ?, provider_id = ?, display_name = COALESCE(display_name, ?), updated_at = ?
+          WHERE id = ?
+          `,
+        ).run(provider, providerId, displayName, now, clientId);
+      } else {
+        const result = db
+          .prepare(
+            `
+            INSERT INTO clients (
+              email, password_hash, display_name, provider, provider_id, created_at, updated_at
+            )
+            VALUES (?, NULL, ?, ?, ?, ?, ?)
+            `,
+          )
+          .run(email, displayName, provider, providerId, now, now);
+        clientId = Number(result.lastInsertRowid);
+        assignRole(db, clientId, ROLE_CLIENT, now);
+      }
+
+      attachHoldToClient(db, holdToken, clientId);
+      const session = createSession(db, clientId, sessionDays);
+      return { client: publicClient(loadClientById(db, clientId)), session };
+    });
+  } catch (error) {
+    if (isUniqueConstraint(error)) {
+      throw new HttpError(
+        409,
+        "PROVIDER_TAKEN",
+        "Этот внешний вход уже привязан к другому аккаунту",
+      );
+    }
+    throw error;
+  }
 }
 
 export function logoutClient(token) {

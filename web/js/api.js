@@ -103,6 +103,21 @@ export function login(credentials) {
   return api("/api/auth/login", { method: "POST", body });
 }
 
+export function loginWithYandex(credentials = {}) {
+  const body = {};
+  if (credentials.hold_token) {
+    body.hold_token = credentials.hold_token;
+  }
+  return api("/api/auth/yandex", { method: "POST", body });
+}
+
+export function checkPasswordLoginAvailable(email) {
+  return api("/api/auth/password-login-available", {
+    method: "POST",
+    body: { email },
+  });
+}
+
 export function register(credentials) {
   const body = {
     email: credentials.email,
