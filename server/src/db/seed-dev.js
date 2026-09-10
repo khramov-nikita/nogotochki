@@ -125,7 +125,7 @@ function seedStudioSettings(db, now) {
 }
 
 function seedServices(db, now) {
-  const insert = db.prepare(
+  const insertById = db.prepare(
     `
     INSERT OR IGNORE INTO services (
       id, slug, name, description, price_rub, price_rub_alt,
@@ -133,7 +133,21 @@ function seedServices(db, now) {
       validity_months, image_path, sort_order, created_at, updated_at
     ) VALUES (
       @id, @slug, @name, NULL, @price_rub, NULL,
-      @duration_min_minutes, @duration_max_minutes, 0, 1,
+      @duration_min_minutes, @duration_max_minutes, @is_addon, @is_bookable,
+      NULL, NULL, @sort_order, @created_at, @updated_at
+    )
+    `,
+  );
+
+  const insertBySlug = db.prepare(
+    `
+    INSERT OR IGNORE INTO services (
+      slug, name, description, price_rub, price_rub_alt,
+      duration_min_minutes, duration_max_minutes, is_addon, is_bookable,
+      validity_months, image_path, sort_order, created_at, updated_at
+    ) VALUES (
+      @slug, @name, NULL, @price_rub, NULL,
+      @duration_min_minutes, @duration_max_minutes, @is_addon, @is_bookable,
       NULL, NULL, @sort_order, @created_at, @updated_at
     )
     `,
@@ -147,6 +161,8 @@ function seedServices(db, now) {
       price_rub: 1800,
       duration_min_minutes: 90,
       duration_max_minutes: 90,
+      is_addon: 0,
+      is_bookable: 1,
       sort_order: 1,
     },
     {
@@ -156,6 +172,8 @@ function seedServices(db, now) {
       price_rub: 3200,
       duration_min_minutes: 150,
       duration_max_minutes: 150,
+      is_addon: 0,
+      is_bookable: 1,
       sort_order: 2,
     },
     {
@@ -165,6 +183,8 @@ function seedServices(db, now) {
       price_rub: 2800,
       duration_min_minutes: 150,
       duration_max_minutes: 150,
+      is_addon: 0,
+      is_bookable: 1,
       sort_order: 3,
     },
     {
@@ -174,7 +194,9 @@ function seedServices(db, now) {
       price_rub: 1200,
       duration_min_minutes: 40,
       duration_max_minutes: 40,
-      sort_order: 4,
+      is_addon: 0,
+      is_bookable: 1,
+      sort_order: 5,
     },
     {
       id: 5,
@@ -183,13 +205,29 @@ function seedServices(db, now) {
       price_rub: 1800,
       duration_min_minutes: 60,
       duration_max_minutes: 60,
-      sort_order: 5,
+      is_addon: 0,
+      is_bookable: 1,
+      sort_order: 6,
     },
   ];
 
   for (const row of rows) {
-    insert.run({ ...row, created_at: now, updated_at: now });
+    insertById.run({ ...row, created_at: now, updated_at: now });
   }
+
+  // Без фиксированного id: в dev-БД id 4 уже может быть у бровей.
+  insertBySlug.run({
+    slug: "nail_design",
+    name: "Дизайн ногтей",
+    price_rub: 300,
+    duration_min_minutes: 15,
+    duration_max_minutes: 30,
+    is_addon: 1,
+    is_bookable: 1,
+    sort_order: 4,
+    created_at: now,
+    updated_at: now,
+  });
 }
 
 function seedMasters(db, now) {
@@ -238,6 +276,11 @@ function seedMasterServices(db) {
   ];
   for (const [masterId, serviceId] of pairs) {
     insert.run(masterId, serviceId);
+  }
+
+  const nailDesign = db.prepare("SELECT id FROM services WHERE slug = 'nail_design'").get();
+  if (nailDesign) {
+    insert.run(1, nailDesign.id);
   }
 }
 
