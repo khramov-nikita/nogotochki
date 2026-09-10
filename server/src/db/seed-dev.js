@@ -146,9 +146,9 @@ function seedServices(db, now) {
       duration_min_minutes, duration_max_minutes, is_addon, is_bookable,
       validity_months, image_path, sort_order, created_at, updated_at
     ) VALUES (
-      @slug, @name, NULL, @price_rub, NULL,
+      @slug, @name, NULL, @price_rub, @price_rub_alt,
       @duration_min_minutes, @duration_max_minutes, @is_addon, @is_bookable,
-      NULL, NULL, @sort_order, @created_at, @updated_at
+      @validity_months, NULL, @sort_order, @created_at, @updated_at
     )
     `,
   );
@@ -220,11 +220,29 @@ function seedServices(db, now) {
     slug: "nail_design",
     name: "Дизайн ногтей",
     price_rub: 300,
+    price_rub_alt: null,
     duration_min_minutes: 15,
     duration_max_minutes: 30,
     is_addon: 1,
     is_bookable: 1,
+    validity_months: null,
     sort_order: 4,
+    created_at: now,
+    updated_at: now,
+  });
+
+  // Сертификат не слот: на лендинге CTA «Условия в студии» (G3).
+  insertBySlug.run({
+    slug: "gift_certificate",
+    name: "Подарочный сертификат",
+    price_rub: 3000,
+    price_rub_alt: 5000,
+    duration_min_minutes: null,
+    duration_max_minutes: null,
+    is_addon: 0,
+    is_bookable: 0,
+    validity_months: 6,
+    sort_order: 7,
     created_at: now,
     updated_at: now,
   });
