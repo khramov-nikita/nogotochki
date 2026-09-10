@@ -237,15 +237,17 @@ function renderCalendar() {
     const ymd = ymdInMonth(state.viewYear, state.viewMonth, day);
     const cached = state.cache.get(ymd);
     const hasCurrent = Boolean(currentSlotForDay(ymd));
-    const available = isInHorizon(ymd) && (Boolean(cached?.slots?.length) || hasCurrent);
+    const inHorizon = isInHorizon(ymd);
+    const hasWindows = Boolean(cached?.slots?.length) || hasCurrent;
     const selected = ymd === state.selectedYmd;
     const classes = ["cal-day"];
     if (selected) {
       classes.push("cal-day--selected");
-    } else if (!available) {
+    } else if (!inHorizon || !hasWindows) {
+      // Пустые дни в горизонте визуально «unavailable», но кликабельны — иначе empty C17 недостижим.
       classes.push("cal-day--unavailable");
     }
-    const disabled = available ? "" : "disabled";
+    const disabled = inHorizon ? "" : "disabled";
     const label = selected ? `Выбран ${day} ${WEEKDAYS_MON[weekdayMonIndex(ymd)]}` : String(day);
     cells.push(
       `<button class="${classes.join(" ")}" type="button" data-date="${ymd}" ${disabled} aria-pressed="${selected}" aria-label="${escapeHtml(label)}">${day}</button>`,
@@ -443,11 +445,14 @@ async function selectDay(ymd) {
   state.viewYear = year;
   state.viewMonth = month - 1;
   state.selectedYmd = ymd;
+  state.selectedStartsAt = null;
+  state.selectedEndsAt = null;
   state.slotError = "";
   state.slotTaken = null;
   setPageError("");
   renderTaken();
   renderCalendar();
+  syncNext();
   if (monthChanged) {
     await loadMonth();
   }
