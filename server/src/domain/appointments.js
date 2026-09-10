@@ -387,7 +387,6 @@ export function createAppointmentFromHold(body, clientId, actor = null) {
 
   try {
     return runInTransaction(db, () => {
-      purgeExpiredHolds(db);
       expireStaleAppointments(db);
       const { hold, serviceIds } = consumeHoldForAppointment(
         db,

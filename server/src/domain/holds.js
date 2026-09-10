@@ -187,12 +187,38 @@ export function deleteHold(token) {
 }
 
 export function consumeHoldForAppointment(db, holdToken, clientId, overlapOverride = 0) {
-  const hold = requireLiveHold(db, holdToken);
+  // Читаем холд до purge: иначе истёкший резерв стирается и confirm всегда даёт
+  // «не найден», даже когда слот уже занят чужой записью (S3).
+  const hold = db.prepare("SELECT * FROM booking_holds WHERE hold_token = ?").get(holdToken);
+  if (!hold) {
+    throw new HttpError(409, "HOLD_EXPIRED", "Резерв истек или не найден");
+  }
   if (hold.client_id && hold.client_id !== clientId) {
     throw new HttpError(403, "FORBIDDEN", "Этот резерв принадлежит другому клиенту");
   }
   const services = getHoldServices(db, hold.id);
   const serviceIds = services.map((row) => row.id);
+  const expired = hold.expires_at <= nowUtcIso();
+
+  if (expired) {
+    db.prepare("DELETE FROM booking_holds WHERE id = ?").run(hold.id);
+    try {
+      assertSlotStillFree(db, {
+        masterId: hold.master_id,
+        serviceIds,
+        startsAt: hold.starts_at,
+        ignoreOccupyingAppointments: overlapOverride === 1,
+      });
+    } catch (error) {
+      if (error instanceof HttpError && error.code === "SLOT_TAKEN") {
+        throw error;
+      }
+      throw error;
+    }
+    throw new HttpError(409, "HOLD_EXPIRED", "Резерв истек");
+  }
+
+  purgeExpiredHolds(db);
   const slot = assertSlotStillFree(db, {
     masterId: hold.master_id,
     serviceIds,

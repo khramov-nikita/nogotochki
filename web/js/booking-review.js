@@ -1,4 +1,4 @@
-import { ApiError, createAppointment, createHold, getHold, getMe } from "./api.js";
+import { ApiError, createAppointment, createHold, getAvailability, getHold, getMe } from "./api.js";
 import { renderStepper } from "./booking-stepper.js";
 import {
   escapeHtml,
@@ -234,7 +234,29 @@ function showSlotTaken(error) {
     slots,
   };
   state.pageError = "";
+  state.expired = false;
   render();
+}
+
+/** Если холд уже стёрт, а слот занят чужой записью — показать SlotTaken (S3), не «резерв истёк». */
+async function slotTakenAfterHoldGone(hold) {
+  const masterId = hold?.master?.id;
+  const startsAt = hold?.starts_at;
+  const serviceIds = (hold?.services || []).map((row) => row.id);
+  if (!masterId || !startsAt || !serviceIds.length) {
+    return null;
+  }
+  const date = ymdFromInstant(startsAt);
+  const body = await getAvailability(masterId, { date, serviceIds });
+  const slots = body.slots || [];
+  if (slots.some((slot) => slot.starts_at === startsAt)) {
+    return null;
+  }
+  const nearby = slots.filter((slot) => slot.starts_at > startsAt).slice(0, 5);
+  return new ApiError(409, {
+    error: { code: "SLOT_TAKEN", message: "Это время уже занято" },
+    slots: nearby.length ? nearby : slots.slice(0, 5),
+  });
 }
 
 async function reholdSlot(startsAt) {
@@ -290,12 +312,25 @@ async function confirm() {
       showSlotTaken(error);
       return;
     }
-    setPageError(error.message || "Не удалось подтвердить запись");
     if (error instanceof ApiError && error.code === "HOLD_EXPIRED") {
+      try {
+        const taken = await slotTakenAfterHoldGone(state.hold);
+        if (taken) {
+          saveDraft({ holdToken: null, startsAt: null });
+          showSlotTaken(taken);
+          return;
+        }
+      } catch {
+        /* обычный истёкший резерв */
+      }
       state.expired = true;
       saveDraft({ holdToken: null, startsAt: null });
       stopTimer();
+      setPageError(error.message || "Не удалось подтвердить запись");
+      render();
+      return;
     }
+    setPageError(error.message || "Не удалось подтвердить запись");
     render();
   }
 }
