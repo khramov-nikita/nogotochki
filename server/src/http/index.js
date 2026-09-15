@@ -1,10 +1,11 @@
 import { closeDb, getDb } from "../db/connection.js";
+import { applyMigrations } from "../db/migrate.js";
 import { purgeExpiredHolds } from "../domain/cleanup.js";
 import { purgeExpiredSessions } from "../domain/auth.js";
 import { createApp } from "./app.js";
 import { getConfig } from "./config.js";
 
-getDb();
+applyMigrations();
 
 const app = createApp();
 const config = getConfig();
