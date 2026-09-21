@@ -4,7 +4,8 @@ import { HttpError } from "../http/errors.js";
 const TOKEN_URL = "https://oauth.yandex.ru/token";
 const INFO_URL = "https://login.yandex.ru/info?format=json";
 const AUTHORIZE_URL = "https://oauth.yandex.ru/authorize";
-const OAUTH_SCOPE = "login:email,login:info";
+// В API Яндекса права в scope разделяются пробелами (не запятыми).
+const OAUTH_SCOPE = "login:email login:info";
 
 function requireYandexConfig() {
   const config = getConfig();
