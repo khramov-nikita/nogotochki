@@ -59,3 +59,25 @@
 | `YANDEX_OAUTH_STUB` | Не включать на сервере | `0` (выкл.) |
 | `YANDEX_STUB_*` | Нет (только для заглушки) | значения из `.env.example` |
 | `DEV_*_PASSWORD` | Нет на сервере | только для локального `seed:dev` |
+| `BOOTSTRAP_ADMIN_EMAIL` / `BOOTSTRAP_ADMIN_PASSWORD` | Да на пустой БД в Coolify | нет в git; создаёт первого администратора при старте |
+
+# Журнал разработки — деплой на Coolify (2026-09-21)
+
+Сервис поднят на Coolify с репозитория https://github.com/khramov-nikita/nogotochki (ветка `main`). Разворачивается по файлу описания запуска `docker-compose.yaml` (+ сборка из `Dockerfile`): порт `3000`, `NODE_ENV=production`, статика `web/`, `YANDEX_OAUTH_STUB=0`, `TRUST_PROXY=1`.
+
+Данные хранятся снаружи контейнера: Docker-том `nogotochki_data` → внутри `/data/nogotochki.sqlite` (`DATABASE_PATH`). Повторный деплой проверен — записи клиентов на месте, том не стирается.
+
+Отдельной секретной строки для подписи сессий в проекте нет и в compose её нет: сессия — случайный токен в cookie, в БД хранится его SHA-256. Пароль первого администратора — только из env Coolify (`BOOTSTRAP_ADMIN_EMAIL` / `BOOTSTRAP_ADMIN_PASSWORD`), не из git.
+
+Публичный адрес проверки: `http://159.194.227.249:3000`.
+
+Compose переименован в `docker-compose.yaml` (Coolify ожидает это имя).
+
+# Журнал разработки — сессия на HTTP-проде (2026-09-21)
+
+### Регистрация / вход не держали кабинет на Coolify
+
+- **Сломано:** после «Зарегистрироваться» страница снова открывала вход/регистрацию, кабинет не открывался.
+- **Причина:** при `NODE_ENV=production` cookie сессии всегда ставилась с флагом `Secure`. Сайт на Coolify открыт по **HTTP**, браузер такую cookie не сохраняет → `GET /api/auth/me` даёт 401 → редирект на auth.
+- **Исправление:** `shouldUseSecureCookies(req)` в `server/src/http/cookies.js` — флаг `Secure` только при реальном HTTPS (`req.secure` или `x-forwarded-proto: https`). Используется в login/register/yandex/logout. Тест: `server/src/http/cookies.test.js`.
+- **Проверка:** после деплоя коммита `3020063` регистрация на `http://159.194.227.249:3000` открывает кабинет и сессия сохраняется после обновления страницы.
