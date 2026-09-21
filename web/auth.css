@@ -22,6 +22,8 @@
   gap: var(--spacing-24);
   width: calc(var(--spacing-80) * 6);
   max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .auth-intro {
@@ -42,6 +44,59 @@
 .button--block {
   width: 100%;
   align-self: stretch;
+}
+
+/*
+  Кнопка Яндекс ID: main / light / L / radius 0.
+  Цвет, обводка, текст, иконка и внутренние отступы — по требованиям Яндекса,
+  не из tokens.css. Снаружи (ширина колонки, gap формы) — токены проекта.
+*/
+.ya-login-button {
+  box-sizing: border-box;
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  max-width: 100%;
+  height: 56px;
+  margin: 0;
+  padding: 0 16px;
+  border: none;
+  border-radius: 0;
+  background: #000000;
+  color: #ffffff;
+  font-family: YS Text, "Helvetica Neue", Arial, sans-serif;
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 20px;
+  letter-spacing: 0;
+  text-align: center;
+  white-space: nowrap;
+  cursor: pointer;
+  align-self: stretch;
+}
+
+.ya-login-button:hover {
+  background: #1a1a1a;
+}
+
+.ya-login-button:focus-visible {
+  outline: 2px solid #000000;
+  outline-offset: 2px;
+}
+
+.ya-login-button__icon {
+  display: block;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+}
+
+.ya-login-button__label {
+  display: block;
+  flex-shrink: 0;
 }
 
 .button--text {

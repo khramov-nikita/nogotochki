@@ -154,6 +154,14 @@
     padding-right: var(--spacing-16);
   }
 
+  .auth-form {
+    width: 100%;
+  }
+
+  .ya-login-button {
+    max-width: 100%;
+  }
+
   .hero,
   .section,
   .booking-main,
