@@ -1,4 +1,4 @@
-import { checkPasswordLoginAvailable, login, loginWithYandex } from "./api.js";
+import { checkPasswordLoginAvailable, login } from "./api.js";
 import { loadDraft, postAuthDestination, preserveNextOnLinks } from "./store.js";
 import {
   applyServerError,
@@ -16,22 +16,19 @@ const alertEl = document.getElementById("form-alert");
 const yandexButton = document.getElementById("yandex-login");
 const forgotLink = document.getElementById("forgot-password");
 
+const YANDEX_INCOMPLETE_MESSAGE =
+  "Вход через Яндекс не завершён. Можно попробовать снова или войти по паролю";
+
 bindPasswordToggles(form);
 preserveNextOnLinks();
 
-async function completeYandexLogin() {
-  clearFormErrors(form, alertEl);
-  try {
-    const payload = {};
-    const holdToken = loadDraft().holdToken;
-    if (holdToken) {
-      payload.hold_token = holdToken;
-    }
-    const body = await loginWithYandex(payload);
-    window.location.href = postAuthDestination(location.search, body?.client);
-  } catch (error) {
-    applyServerError(form, alertEl, error);
-  }
+const params = new URLSearchParams(location.search);
+if (params.get("yandex") === "incomplete") {
+  setAlert(alertEl, YANDEX_INCOMPLETE_MESSAGE);
+  params.delete("yandex");
+  const nextSearch = params.toString();
+  const cleanUrl = `${location.pathname}${nextSearch ? `?${nextSearch}` : ""}${location.hash}`;
+  history.replaceState(null, "", cleanUrl);
 }
 
 form.addEventListener("submit", async (event) => {
@@ -72,7 +69,7 @@ form.addEventListener("submit", async (event) => {
 });
 
 yandexButton?.addEventListener("click", () => {
-  void completeYandexLogin();
+  window.location.href = "/api/auth/yandex/start";
 });
 
 forgotLink?.addEventListener("click", async (event) => {

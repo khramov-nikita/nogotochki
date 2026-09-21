@@ -11,7 +11,6 @@ COPY web ./web
 ENV NODE_ENV=production
 ENV PORT=3000
 ENV DATABASE_PATH=/data/nogotochki.sqlite
-ENV YANDEX_OAUTH_STUB=0
 
 EXPOSE 3000
 VOLUME ["/data"]

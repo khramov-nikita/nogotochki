@@ -1288,118 +1288,210 @@ test("admin create on a busy slot warns then overlaps after confirmation", async
   assert.ok(pair.every((row) => row.overlapping));
 });
 
-test("yandex login returns 501 when stub is off", async () => {
-  const previous = process.env.YANDEX_OAUTH_STUB;
-  delete process.env.YANDEX_OAUTH_STUB;
-  try {
-    const result = await api("/api/auth/yandex", {
-      method: "POST",
-      body: JSON.stringify({}),
-    });
-    assert.equal(result.status, 501);
-    assert.equal(result.body.error.code, "YANDEX_NOT_CONFIGURED");
-  } finally {
-    if (previous === undefined) {
-      delete process.env.YANDEX_OAUTH_STUB;
-    } else {
-      process.env.YANDEX_OAUTH_STUB = previous;
-    }
-  }
-});
-
-test("yandex stub creates client with role client and issues session", async () => {
-  process.env.YANDEX_OAUTH_STUB = "1";
-  process.env.YANDEX_STUB_EMAIL = "yandex-new@nogotochki.test";
-  process.env.YANDEX_STUB_NAME = "Яндекс Новый";
-  process.env.YANDEX_STUB_PROVIDER_ID = "yandex-new-1";
-
-  const first = await api("/api/auth/yandex", {
-    method: "POST",
-    body: JSON.stringify({}),
-  });
-  assert.equal(first.status, 200);
-  assertNoSecrets(first.body);
-  assert.equal(first.body.client.email, "yandex-new@nogotochki.test");
-  assert.equal(first.body.client.display_name, "Яндекс Новый");
-  assert.deepEqual(first.body.client.roles, ["client"]);
-  assert.ok(first.body.token);
-
-  const row = getDb()
-    .prepare(
-      "SELECT password_hash, provider, provider_id FROM clients WHERE email = ?",
-    )
-    .get("yandex-new@nogotochki.test");
-  assert.equal(row.password_hash, null);
-  assert.equal(row.provider, "yandex");
-  assert.equal(row.provider_id, "yandex-new-1");
-
-  const second = await api("/api/auth/yandex", {
-    method: "POST",
-    body: JSON.stringify({}),
-  });
-  assert.equal(second.status, 200);
-  assert.equal(second.body.client.id, first.body.client.id);
-
-  const count = getDb()
-    .prepare("SELECT COUNT(*) AS n FROM clients WHERE email = ?")
-    .get("yandex-new@nogotochki.test");
-  assert.equal(count.n, 1);
-
-  const passwordLogin = await api("/api/auth/login", {
-    method: "POST",
-    body: JSON.stringify({
-      email: "yandex-new@nogotochki.test",
-      password: "Whatever12",
-    }),
-  });
-  assert.equal(passwordLogin.status, 400);
-  assert.equal(passwordLogin.body.error.code, "YANDEX_LOGIN_ONLY");
-
-  const available = await api("/api/auth/password-login-available", {
-    method: "POST",
-    body: JSON.stringify({ email: "yandex-new@nogotochki.test" }),
-  });
-  assert.equal(available.status, 400);
-  assert.equal(available.body.error.code, "YANDEX_LOGIN_ONLY");
-
-  delete process.env.YANDEX_OAUTH_STUB;
-});
-
-test("yandex stub links existing password account without changing roles", async () => {
-  process.env.YANDEX_OAUTH_STUB = "1";
-  process.env.YANDEX_STUB_EMAIL = "admin@nogotochki.test";
-  process.env.YANDEX_STUB_NAME = "Админ Яндекс";
-  process.env.YANDEX_STUB_PROVIDER_ID = "yandex-admin-1";
-
-  const before = getDb()
-    .prepare("SELECT id, password_hash FROM clients WHERE email = ?")
-    .get("admin@nogotochki.test");
-  assert.ok(before.password_hash);
-
+test("yandex login returns 400 when code is missing", async () => {
   const result = await api("/api/auth/yandex", {
     method: "POST",
     body: JSON.stringify({}),
   });
-  assert.equal(result.status, 200);
-  assert.equal(result.body.client.id, before.id);
-  assert.ok(result.body.client.roles.includes("administrator"));
+  assert.equal(result.status, 400);
+  assert.equal(result.body.error.code, "VALIDATION_ERROR");
+});
 
-  const after = getDb()
-    .prepare(
-      "SELECT password_hash, provider, provider_id FROM clients WHERE email = ?",
-    )
-    .get("admin@nogotochki.test");
-  assert.equal(after.password_hash, before.password_hash);
-  assert.equal(after.provider, "yandex");
-  assert.equal(after.provider_id, "yandex-admin-1");
+test("yandex login returns 501 when oauth env is missing", async () => {
+  const previous = {
+    id: process.env.YANDEX_CLIENT_ID,
+    secret: process.env.YANDEX_CLIENT_SECRET,
+    redirect: process.env.YANDEX_REDIRECT_URI,
+  };
+  delete process.env.YANDEX_CLIENT_ID;
+  delete process.env.YANDEX_CLIENT_SECRET;
+  delete process.env.YANDEX_REDIRECT_URI;
+  try {
+    const result = await api("/api/auth/yandex", {
+      method: "POST",
+      body: JSON.stringify({ code: "test-code" }),
+    });
+    assert.equal(result.status, 501);
+    assert.equal(result.body.error.code, "YANDEX_NOT_CONFIGURED");
+  } finally {
+    if (previous.id === undefined) delete process.env.YANDEX_CLIENT_ID;
+    else process.env.YANDEX_CLIENT_ID = previous.id;
+    if (previous.secret === undefined) delete process.env.YANDEX_CLIENT_SECRET;
+    else process.env.YANDEX_CLIENT_SECRET = previous.secret;
+    if (previous.redirect === undefined) delete process.env.YANDEX_REDIRECT_URI;
+    else process.env.YANDEX_REDIRECT_URI = previous.redirect;
+  }
+});
 
-  const available = await api("/api/auth/password-login-available", {
-    method: "POST",
-    body: JSON.stringify({ email: "admin@nogotochki.test" }),
-  });
-  assert.equal(available.status, 200);
-  assert.equal(available.body.available, true);
+test("yandex oauth creates client with role client and issues session", async () => {
+  process.env.YANDEX_CLIENT_ID = "test-client-id";
+  process.env.YANDEX_CLIENT_SECRET = "test-client-secret";
+  process.env.YANDEX_REDIRECT_URI = "https://nogotochki-test.ru/auth/yandex/callback";
 
-  delete process.env.YANDEX_OAUTH_STUB;
+  const originalFetch = globalThis.fetch;
+  let tokenCalls = 0;
+  let infoCalls = 0;
+  globalThis.fetch = async (input, init) => {
+    const url = String(input);
+    if (url.startsWith("http://127.0.0.1") || url.startsWith(base)) {
+      return originalFetch(input, init);
+    }
+    if (url === "https://oauth.yandex.ru/token") {
+      tokenCalls += 1;
+      return new Response(JSON.stringify({ access_token: "yandex-access-token" }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }
+    if (url.startsWith("https://login.yandex.ru/info")) {
+      infoCalls += 1;
+      const auth = init?.headers?.Authorization || init?.headers?.authorization;
+      assert.equal(auth, "OAuth yandex-access-token");
+      return new Response(
+        JSON.stringify({
+          id: "yandex-new-1",
+          default_email: "yandex-new@nogotochki.test",
+          first_name: "Яндекс",
+          last_name: "Новый",
+        }),
+        {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        },
+      );
+    }
+    throw new Error(`Unexpected fetch in test: ${url}`);
+  };
+
+  try {
+    const first = await api("/api/auth/yandex", {
+      method: "POST",
+      body: JSON.stringify({ code: "auth-code-1" }),
+    });
+    assert.equal(first.status, 200);
+    assertNoSecrets(first.body);
+    assert.equal(first.body.client.email, "yandex-new@nogotochki.test");
+    assert.equal(first.body.client.display_name, "Яндекс Новый");
+    assert.deepEqual(first.body.client.roles, ["client"]);
+    assert.ok(first.body.token);
+    assert.equal(tokenCalls, 1);
+    assert.equal(infoCalls, 1);
+
+    const row = getDb()
+      .prepare(
+        "SELECT password_hash, provider, provider_id FROM clients WHERE email = ?",
+      )
+      .get("yandex-new@nogotochki.test");
+    assert.equal(row.password_hash, null);
+    assert.equal(row.provider, "yandex");
+    assert.equal(row.provider_id, "yandex-new-1");
+    assert.ok(!/"yandex-access-token"/.test(JSON.stringify(first.body)));
+    assert.ok(!/"yandex-access-token"/.test(JSON.stringify(row)));
+
+    const second = await api("/api/auth/yandex", {
+      method: "POST",
+      body: JSON.stringify({ code: "auth-code-2" }),
+    });
+    assert.equal(second.status, 200);
+    assert.equal(second.body.client.id, first.body.client.id);
+
+    const count = getDb()
+      .prepare("SELECT COUNT(*) AS n FROM clients WHERE email = ?")
+      .get("yandex-new@nogotochki.test");
+    assert.equal(count.n, 1);
+
+    const passwordLogin = await api("/api/auth/login", {
+      method: "POST",
+      body: JSON.stringify({
+        email: "yandex-new@nogotochki.test",
+        password: "Whatever12",
+      }),
+    });
+    assert.equal(passwordLogin.status, 400);
+    assert.equal(passwordLogin.body.error.code, "YANDEX_LOGIN_ONLY");
+
+    const available = await api("/api/auth/password-login-available", {
+      method: "POST",
+      body: JSON.stringify({ email: "yandex-new@nogotochki.test" }),
+    });
+    assert.equal(available.status, 400);
+    assert.equal(available.body.error.code, "YANDEX_LOGIN_ONLY");
+  } finally {
+    globalThis.fetch = originalFetch;
+    delete process.env.YANDEX_CLIENT_ID;
+    delete process.env.YANDEX_CLIENT_SECRET;
+    delete process.env.YANDEX_REDIRECT_URI;
+  }
+});
+
+test("yandex oauth links existing password account without changing roles", async () => {
+  process.env.YANDEX_CLIENT_ID = "test-client-id";
+  process.env.YANDEX_CLIENT_SECRET = "test-client-secret";
+  process.env.YANDEX_REDIRECT_URI = "https://nogotochki-test.ru/auth/yandex/callback";
+
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (input, init) => {
+    const url = String(input);
+    if (url.startsWith("http://127.0.0.1") || url.startsWith(base)) {
+      return originalFetch(input, init);
+    }
+    if (url === "https://oauth.yandex.ru/token") {
+      return new Response(JSON.stringify({ access_token: "yandex-access-token" }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }
+    if (url.startsWith("https://login.yandex.ru/info")) {
+      return new Response(
+        JSON.stringify({
+          id: "yandex-admin-1",
+          default_email: "admin@nogotochki.test",
+          first_name: "Админ",
+          last_name: "Яндекс",
+        }),
+        {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        },
+      );
+    }
+    throw new Error(`Unexpected fetch in test: ${url}`);
+  };
+
+  try {
+    const before = getDb()
+      .prepare("SELECT id, password_hash FROM clients WHERE email = ?")
+      .get("admin@nogotochki.test");
+    assert.ok(before.password_hash);
+
+    const result = await api("/api/auth/yandex", {
+      method: "POST",
+      body: JSON.stringify({ code: "auth-code-admin" }),
+    });
+    assert.equal(result.status, 200);
+    assert.equal(result.body.client.id, before.id);
+    assert.ok(result.body.client.roles.includes("administrator"));
+
+    const after = getDb()
+      .prepare(
+        "SELECT password_hash, provider, provider_id FROM clients WHERE email = ?",
+      )
+      .get("admin@nogotochki.test");
+    assert.equal(after.password_hash, before.password_hash);
+    assert.equal(after.provider, "yandex");
+    assert.equal(after.provider_id, "yandex-admin-1");
+
+    const available = await api("/api/auth/password-login-available", {
+      method: "POST",
+      body: JSON.stringify({ email: "admin@nogotochki.test" }),
+    });
+    assert.equal(available.status, 200);
+    assert.equal(available.body.available, true);
+  } finally {
+    globalThis.fetch = originalFetch;
+    delete process.env.YANDEX_CLIENT_ID;
+    delete process.env.YANDEX_CLIENT_SECRET;
+    delete process.env.YANDEX_REDIRECT_URI;
+  }
 });
 

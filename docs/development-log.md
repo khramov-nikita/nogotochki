@@ -56,14 +56,15 @@
 | `CORS_ORIGIN` | Да, если фронт на другом origin и нужны cookie | пусто → отражать Origin запроса |
 | `SESSION_DAYS` | Нет | `30` |
 | `TRUST_PROXY` | Да, если перед Node стоит nginx/прокси | пусто/`0`; за nginx обычно `1` |
-| `YANDEX_OAUTH_STUB` | Не включать на сервере | `0` (выкл.) |
-| `YANDEX_STUB_*` | Нет (только для заглушки) | значения из `.env.example` |
+| `YANDEX_CLIENT_ID` | Да, для входа через Яндекс | пусто |
+| `YANDEX_CLIENT_SECRET` | Да, для входа через Яндекс | пусто |
+| `YANDEX_REDIRECT_URI` | Да, как в кабинете Яндекса | пусто |
 | `DEV_*_PASSWORD` | Нет на сервере | только для локального `seed:dev` |
 | `BOOTSTRAP_ADMIN_EMAIL` / `BOOTSTRAP_ADMIN_PASSWORD` | Да на пустой БД в Coolify | нет в git; создаёт первого администратора при старте |
 
 # Журнал разработки — деплой на Coolify (2026-09-21)
 
-Сервис поднят на Coolify с репозитория https://github.com/khramov-nikita/nogotochki (ветка `main`). Разворачивается по файлу описания запуска `docker-compose.yaml` (+ сборка из `Dockerfile`): порт `3000`, `NODE_ENV=production`, статика `web/`, `YANDEX_OAUTH_STUB=0`, `TRUST_PROXY=1`.
+Сервис поднят на Coolify с репозитория https://github.com/khramov-nikita/nogotochki (ветка `main`). Разворачивается по файлу описания запуска `docker-compose.yaml` (+ сборка из `Dockerfile`): порт `3000`, `NODE_ENV=production`, статика `web/`, `TRUST_PROXY=1`. Для входа через Яндекс на сервере задаются `YANDEX_CLIENT_ID`, `YANDEX_CLIENT_SECRET`, `YANDEX_REDIRECT_URI`.
 
 Данные хранятся снаружи контейнера: Docker-том `nogotochki_data` → внутри `/data/nogotochki.sqlite` (`DATABASE_PATH`). Повторный деплой проверен — записи клиентов на месте, том не стирается.
 

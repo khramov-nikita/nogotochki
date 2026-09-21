@@ -13,11 +13,6 @@ export function parseTrustProxy(value = process.env.TRUST_PROXY) {
   return false;
 }
 
-function parseEnvFlag(value) {
-  const raw = String(value ?? "").trim().toLowerCase();
-  return raw === "1" || raw === "true" || raw === "yes" || raw === "on";
-}
-
 export function getConfig() {
   const sessionDays = Number(process.env.SESSION_DAYS);
   const port = Number(process.env.PORT);
@@ -28,9 +23,8 @@ export function getConfig() {
     sessionDays: Number.isInteger(sessionDays) && sessionDays > 0 ? sessionDays : 30,
     nodeEnv: process.env.NODE_ENV || "development",
     trustProxy: parseTrustProxy(),
-    yandexOAuthStub: parseEnvFlag(process.env.YANDEX_OAUTH_STUB),
-    yandexStubEmail: process.env.YANDEX_STUB_EMAIL?.trim() || "yandex-stub@nogotochki.test",
-    yandexStubName: process.env.YANDEX_STUB_NAME?.trim() || "Яндекс Тест",
-    yandexStubProviderId: process.env.YANDEX_STUB_PROVIDER_ID?.trim() || "yandex-stub-1",
+    yandexClientId: process.env.YANDEX_CLIENT_ID?.trim() || "",
+    yandexClientSecret: process.env.YANDEX_CLIENT_SECRET?.trim() || "",
+    yandexRedirectUri: process.env.YANDEX_REDIRECT_URI?.trim() || "",
   };
 }

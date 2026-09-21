@@ -45,6 +45,10 @@ export function createApp() {
     adminPagesHandler,
   );
 
+  app.get("/auth/yandex/callback", (_req, res) => {
+    res.sendFile(path.join(webRoot, "auth/yandex/callback.html"));
+  });
+
   app.use(express.static(webRoot));
 
   app.use(notFoundHandler);

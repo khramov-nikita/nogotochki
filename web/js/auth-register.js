@@ -1,4 +1,4 @@
-import { loginWithYandex, register } from "./api.js";
+import { register } from "./api.js";
 import { loadDraft, postAuthDestination, preserveNextOnLinks } from "./store.js";
 import {
   applyServerError,
@@ -18,21 +18,6 @@ const yandexButton = document.getElementById("yandex-login");
 
 bindPasswordToggles(form);
 preserveNextOnLinks();
-
-async function completeYandexLogin() {
-  clearFormErrors(form, alertEl);
-  try {
-    const payload = {};
-    const holdToken = loadDraft().holdToken;
-    if (holdToken) {
-      payload.hold_token = holdToken;
-    }
-    const body = await loginWithYandex(payload);
-    window.location.href = postAuthDestination(location.search, body?.client);
-  } catch (error) {
-    applyServerError(form, alertEl, error);
-  }
-}
 
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -84,5 +69,5 @@ form.addEventListener("submit", async (event) => {
 });
 
 yandexButton?.addEventListener("click", () => {
-  void completeYandexLogin();
+  window.location.href = "/api/auth/yandex/start";
 });

@@ -105,6 +105,9 @@ export function login(credentials) {
 
 export function loginWithYandex(credentials = {}) {
   const body = {};
+  if (credentials.code) {
+    body.code = credentials.code;
+  }
   if (credentials.hold_token) {
     body.hold_token = credentials.hold_token;
   }

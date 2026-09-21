@@ -7,7 +7,6 @@ services:
       NODE_ENV: production
       PORT: "3000"
       DATABASE_PATH: /data/nogotochki.sqlite
-      YANDEX_OAUTH_STUB: "0"
       TRUST_PROXY: "1"
     volumes:
       - nogotochki_data:/data
