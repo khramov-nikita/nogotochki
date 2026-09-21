@@ -62,6 +62,8 @@
 | `DEV_*_PASSWORD` | Нет на сервере | только для локального `seed:dev` |
 | `BOOTSTRAP_ADMIN_EMAIL` / `BOOTSTRAP_ADMIN_PASSWORD` | Да на пустой БД в Coolify | нет в git; создаёт первого администратора при старте |
 
+Раньше здесь были `YANDEX_OAUTH_STUB` и `YANDEX_STUB_*`: временная заглушка входа через Яндекс, на сервере не включать, убрать при публикации. **Закрыто 2026-09-21** — заглушка удалена, работает настоящий OAuth (см. запись ниже).
+
 # Журнал разработки — деплой на Coolify (2026-09-21)
 
 Сервис поднят на Coolify с репозитория https://github.com/khramov-nikita/nogotochki (ветка `main`). Разворачивается по файлу описания запуска `docker-compose.yaml` (+ сборка из `Dockerfile`): порт `3000`, `NODE_ENV=production`, статика `web/`, `TRUST_PROXY=1`. Для входа через Яндекс на сервере задаются `YANDEX_CLIENT_ID`, `YANDEX_CLIENT_SECRET`, `YANDEX_REDIRECT_URI`.
@@ -82,3 +84,11 @@ Compose переименован в `docker-compose.yaml` (Coolify ожидае�
 - **Причина:** при `NODE_ENV=production` cookie сессии всегда ставилась с флагом `Secure`. Сайт на Coolify открыт по **HTTP**, браузер такую cookie не сохраняет → `GET /api/auth/me` даёт 401 → редирект на auth.
 - **Исправление:** `shouldUseSecureCookies(req)` в `server/src/http/cookies.js` — флаг `Secure` только при реальном HTTPS (`req.secure` или `x-forwarded-proto: https`). Используется в login/register/yandex/logout. Тест: `server/src/http/cookies.test.js`.
 - **Проверка:** после деплоя коммита `3020063` регистрация на `http://159.194.227.249:3000` открывает кабинет и сессия сохраняется после обновления страницы.
+
+# Журнал разработки — настоящий вход через Яндекс (2026-09-21)
+
+Временное решение для входа через Яндекс убрано. Вместо заглушки `YANDEX_OAUTH_STUB` работает настоящая интеграция: `GET /api/auth/yandex/start` → согласие в Яндексе → `/auth/yandex/callback` → обмен `code` на профиль в `fetchYandexUserProfile` → прежняя выдача своей сессии. Токен Яндекса не сохраняется. При отказе или ошибке Яндекса пользователь возвращается на экран входа с понятным сообщением.
+
+Идентификатор и секрет приложения (`YANDEX_CLIENT_ID`, `YANDEX_CLIENT_SECRET`) и `YANDEX_REDIRECT_URI` задаются переменными окружения на сервере (Coolify). В репозитории и в git их нет — только пустые поля в `.env.example`. Файл `.env` в git не коммитится.
+
+Кнопка входа на `auth.html` и `register.html` приведена к требованиям Яндекса к оформлению: тип main, тема light, размер L (56px), скругление 0; цвет, иконка, текст и внутренние отступы — по бренд-требованиям, не из `tokens.css`. OAuth-поток прежний (не SDK Suggest).
