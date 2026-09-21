@@ -1,0 +1,115 @@
+{
+  "base": "https://nogotochki-test.ru",
+  "startedAt": "2026-09-21T19:22:18.218Z",
+  "clientEmail": "prodcheck-c11-1790018538218@example.com",
+  "steps": [
+    {
+      "msg": "landing",
+      "url": "https://nogotochki-test.ru/",
+      "statusOk": true
+    },
+    {
+      "msg": "client-register",
+      "status": 201,
+      "email": "prodcheck-c11-1790018538218@example.com"
+    },
+    {
+      "msg": "session-cookie",
+      "authMode": "register",
+      "present": true,
+      "secure": true,
+      "httpOnly": true,
+      "sameSite": "Lax",
+      "domain": "nogotochki-test.ru"
+    },
+    {
+      "msg": "step1",
+      "serviceLabel": "Маникюр с покрытием гель-лаком\n1 800 ₽\n1,5 часа",
+      "url": "https://nogotochki-test.ru/booking-master.html"
+    },
+    {
+      "msg": "step2",
+      "masterName": "Мастер студии",
+      "url": "https://nogotochki-test.ru/booking-datetime.html"
+    },
+    {
+      "msg": "days-available",
+      "dayCount": 8
+    },
+    {
+      "msg": "slot-attempt",
+      "i": 0,
+      "slotText": "13:00",
+      "timerVisible": false,
+      "nextEnabled": false,
+      "holdStatus": 409
+    },
+    {
+      "msg": "slot-attempt",
+      "i": 1,
+      "slotText": "10:00",
+      "timerVisible": true,
+      "nextEnabled": true,
+      "holdStatus": 201,
+      "starts_at": "2026-09-23T07:00:00Z",
+      "expires_at": "2026-09-21T19:37:28Z"
+    },
+    {
+      "msg": "step3-hold",
+      "hold_token": "be23c61cd8a3",
+      "starts_at": "2026-09-23T07:00:00Z",
+      "expires_at": "2026-09-21T19:37:28Z"
+    },
+    {
+      "msg": "step4-review",
+      "url": "https://nogotochki-test.ru/booking-review.html",
+      "confirmDisabled": false,
+      "hasStreetOnReview": false,
+      "summarySnippet": "1 | Услуги | 2 | Мастер | 3 | Дата и время | 4 | Проверка | 5 | Готово | Проверка записи |  | Проверьте состав визита. Предоплату принимает студия — сайт только резервирует слот. Точный адрес появится в кабинете после подтверждения. |  | Резерв слота истекает. Завершите проверку, пока время ещё удерживается. |  | Услуга | Маникюр с покрытием гель-лаком | Стоимость и длительность | 1 800 ₽ · 1,5 часа | Изменить | Мастер | Мастер студии | Специализация | Маникюр и покрытие | Изменить | Дата и время | 23 сентября 2026, 10:00 | Изменить | Итого | 1 800 ₽ · 1"
+    },
+    {
+      "msg": "confirm-api",
+      "status": 201,
+      "exact_address": null
+    },
+    {
+      "msg": "done-page",
+      "url": "https://nogotochki-test.ru/booking-done.html",
+      "h1": "Запись создана",
+      "intro": "Запись создана\n\nСтатус «ожидает предоплату». Предоплату принимает студия вне сайта. Точный адрес появится в кабинете, когда студия подтвердит запись.",
+      "badge": "Ожидает предоплату",
+      "summarySnippet": "Услуга | Маникюр с покрытием гель-лаком | Стоимость и длительность | 1 800 ₽ · 1,5 часа | Мастер | Мастер студии | Специализация | Маникюр и покрытие | Дата и время | 23 сентября 2026, 10:00 | Итого | 1 800 ₽ · 1,5 часа |  | Предоплату принимает студия, на сайте оплаты нет.",
+      "cabinetHref": "cabinet.html",
+      "expects": {
+        "titleOk": true,
+        "pendingText": true,
+        "studioPrepay": true,
+        "noExactAddress": true,
+        "cabinetCta": true
+      }
+    },
+    {
+      "msg": "admin-login",
+      "status": 401
+    },
+    {
+      "msg": "admin-confirm-error",
+      "error": "admin login failed / seed missing"
+    },
+    {
+      "msg": "RESULT",
+      "status": "pass",
+      "corePass": true,
+      "adminConfirmOk": false
+    }
+  ],
+  "ok": true,
+  "adminConfirm": {
+    "ok": false,
+    "note": "admin login failed / seed missing"
+  },
+  "corePass": true,
+  "finishedAt": "2026-09-21T19:22:34.334Z",
+  "status": "pass",
+  "adminSubstep": "blocked"
+}

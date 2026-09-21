@@ -1,0 +1,98 @@
+{
+  "base": "https://nogotochki-test.ru",
+  "startedAt": "2026-09-21T19:34:44.056Z",
+  "steps": [
+    {
+      "msg": "catalog",
+      "at": "2026-09-21T19:34:44.469Z",
+      "serviceStatus": 200,
+      "masterStatus": 200,
+      "serviceId": 1,
+      "masterId": 1
+    },
+    {
+      "msg": "api-free-slot",
+      "at": "2026-09-21T19:34:44.585Z",
+      "date": "2026-09-23",
+      "startsAt": "2026-09-23T08:30:00Z",
+      "availStatus": 200,
+      "slotCount": 11
+    },
+    {
+      "msg": "B-step3",
+      "at": "2026-09-21T19:34:48.361Z",
+      "url": "https://nogotochki-test.ru/booking-datetime.html"
+    },
+    {
+      "msg": "A-step3",
+      "at": "2026-09-21T19:34:48.371Z",
+      "url": "https://nogotochki-test.ru/booking-datetime.html"
+    },
+    {
+      "msg": "A-day",
+      "at": "2026-09-21T19:34:50.340Z",
+      "i": 0,
+      "dayText": "23",
+      "slotCount": 11,
+      "slotText": "11:30"
+    },
+    {
+      "msg": "A-hold",
+      "at": "2026-09-21T19:34:51.524Z",
+      "status": 201,
+      "ok": true,
+      "starts_at": "2026-09-23T08:30:00Z",
+      "expires_at": "2026-09-21T19:49:51Z",
+      "hold_token": "cb05df9fec52",
+      "timerVisible": true,
+      "timerText": "Слот зарезервирован · 14:59"
+    },
+    {
+      "msg": "B-hold-ui",
+      "at": "2026-09-21T19:34:52.521Z",
+      "status": 409,
+      "ok": false,
+      "errorCode": "SLOT_TAKEN",
+      "errorMessage": "Это время уже занято",
+      "slotError": "Это время уже занято",
+      "slotErrorVisible": true,
+      "timerVisible": false,
+      "donePage": false,
+      "url": "https://nogotochki-test.ru/booking-datetime.html",
+      "mainSnippet": "1 | Услуги | 2 | Мастер | 3 | Дата и время | 4 | Проверка | 5 | Готово | Дата и время |  | Выберите день и свободное время под длительность визита — 1,5 часа. Слот резервируется на ограниченное время. Предоплату принимает студия, на сайте оплаты нет. |  | Сентябрь 2026 |  | Пн | Вт | Ср | Чт | Пт | Сб | Вс | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24 | 25 | 26 | 27 | 28 | 29 | 30 |  | СВОБОДНОЕ ВРЕМЯ |  | 13:00 | 13:30 | 14:00 | 14:30 | 15:00 | 15:30 | 1"
+    },
+    {
+      "msg": "B-hold-api",
+      "at": "2026-09-21T19:34:52.627Z",
+      "status": 409,
+      "errorCode": "SLOT_TAKEN",
+      "errorMessage": "Это время уже занято",
+      "slotsHint": 5
+    },
+    {
+      "msg": "verdict",
+      "at": "2026-09-21T19:34:52.627Z",
+      "ok": true,
+      "aHoldOk": true,
+      "timerA": true,
+      "bUiStatus": 409,
+      "bApiStatus": 409,
+      "occupiedMsg": true,
+      "doneB": false,
+      "timerB": false
+    },
+    {
+      "msg": "cleanup-delete-A",
+      "at": "2026-09-21T19:34:52.676Z",
+      "status": 200,
+      "ok": true
+    }
+  ],
+  "ok": true,
+  "holdTokenA": "cb05df9fec5223d5299c3955d131ee0b11614f284cc59564",
+  "cleanup": {
+    "status": 200,
+    "ok": true
+  },
+  "finishedAt": "2026-09-21T19:34:52.676Z"
+}

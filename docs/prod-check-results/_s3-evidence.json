@@ -1,0 +1,134 @@
+{
+  "base": "https://nogotochki-test.ru",
+  "startedAt": "2026-09-21T19:34:21.984Z",
+  "emailA": "prodcheck-s3a-1790019261984@example.com",
+  "emailB": "prodcheck-s3b-1790019261984@example.com",
+  "steps": [
+    {
+      "msg": "landing",
+      "url": "https://nogotochki-test.ru/"
+    },
+    {
+      "msg": "register",
+      "email": "prodcheck-s3a-1790019261984@example.com",
+      "status": 201
+    },
+    {
+      "msg": "register",
+      "email": "prodcheck-s3b-1790019261984@example.com",
+      "status": 201
+    },
+    {
+      "msg": "A-to-datetime",
+      "url": "https://nogotochki-test.ru/booking-datetime.html"
+    },
+    {
+      "msg": "days-available",
+      "dayCount": 8,
+      "preferStartsAt": null
+    },
+    {
+      "msg": "slot-attempt",
+      "i": 0,
+      "slotText": "16:30",
+      "timerVisible": true,
+      "nextEnabled": true,
+      "holdStatus": 201,
+      "starts_at": "2026-09-22T13:30:00Z",
+      "expires_at": "2026-09-21T19:49:33Z"
+    },
+    {
+      "msg": "A-on-review",
+      "url": "https://nogotochki-test.ru/booking-review.html",
+      "confirmDisabled": false,
+      "starts_at": "2026-09-22T13:30:00Z",
+      "masterId": 1,
+      "serviceIds": [
+        1
+      ],
+      "hold_token_prefix": "aa5353112ee6",
+      "expires_at": "2026-09-21T19:49:33Z"
+    },
+    {
+      "msg": "A-hold-released",
+      "status": 200,
+      "body": {
+        "ok": true
+      }
+    },
+    {
+      "msg": "A-token-still-present",
+      "tokenStillInState": false
+    },
+    {
+      "msg": "B-to-datetime",
+      "url": "https://nogotochki-test.ru/booking-datetime.html"
+    },
+    {
+      "msg": "days-available",
+      "dayCount": 8,
+      "preferStartsAt": "2026-09-22T13:30:00Z"
+    },
+    {
+      "msg": "slot-attempt",
+      "i": 0,
+      "slotText": "16:30",
+      "timerVisible": true,
+      "nextEnabled": true,
+      "holdStatus": 201,
+      "starts_at": "2026-09-22T13:30:00Z",
+      "expires_at": "2026-09-21T19:49:41Z"
+    },
+    {
+      "msg": "B-confirm-api",
+      "status": 201
+    },
+    {
+      "msg": "B-done",
+      "url": "https://nogotochki-test.ru/booking-done.html",
+      "h1": "Запись создана"
+    },
+    {
+      "msg": "A-confirm-api",
+      "status": 409,
+      "code": "HOLD_EXPIRED",
+      "message": "Резерв истек или не найден",
+      "body": {
+        "error": {
+          "code": "HOLD_EXPIRED",
+          "message": "Резерв истек или не найден"
+        }
+      }
+    },
+    {
+      "msg": "A-after-confirm-ui",
+      "url": "https://nogotochki-test.ru/booking-review.html",
+      "slotTakenVisible": true,
+      "reserveExpiredWrong": false,
+      "onDone": false,
+      "aSuccessAppt": false,
+      "mainSnippet": "1 | Услуги | 2 | Мастер | 3 | Дата и время | 4 | Проверка | 5 | Готово | Проверка записи |  | Проверьте состав визита. Предоплату принимает студия — сайт только резервирует слот. Точный адрес появится в кабинете после подтверждения. |  | Это время уже занято |  | Другое время | Услуга | Маникюр с покрытием гель-лаком | Стоимость и длительность | 1 800 ₽ · 1,5 часа | Изменить | Мастер | Мастер студии | Специализация | Маникюр и покрытие | Изменить | Дата и время | 22 сентября 2026, 16:30 | Изменить | Итого | 1 800 ₽ · 1,5 часа |  | Предоплату принимает студия, на сайте оплаты нет. |  | Назад | Подтвердить запись"
+    },
+    {
+      "msg": "RESULT",
+      "status": "pass",
+      "expects": {
+        "aSeesSlotTaken": true,
+        "aNoDone": true,
+        "aNoAppointment": true,
+        "notWrongExpiredOnly": true,
+        "bGotDone": true
+      }
+    }
+  ],
+  "status": "pass",
+  "ok": true,
+  "expects": {
+    "aSeesSlotTaken": true,
+    "aNoDone": true,
+    "aNoAppointment": true,
+    "notWrongExpiredOnly": true,
+    "bGotDone": true
+  },
+  "finishedAt": "2026-09-21T19:34:45.043Z"
+}

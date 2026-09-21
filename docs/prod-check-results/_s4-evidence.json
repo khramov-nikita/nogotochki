@@ -1,0 +1,94 @@
+{
+  "startedAt": "2026-09-21T19:33:55.667Z",
+  "clientEmail": "c5probe_1790018461@nogotochki.test",
+  "base": "https://nogotochki-test.ru",
+  "steps": [
+    {
+      "msg": "base-probe",
+      "url": "https://nogotochki-test.ru",
+      "status": 200
+    },
+    {
+      "msg": "login-attempt",
+      "email": "c5probe_1790018461@nogotochki.test",
+      "status": 200
+    },
+    {
+      "msg": "cabinet-after-login",
+      "url": "https://nogotochki-test.ru/cabinet.html",
+      "title": "Кабинет — Ноготочки",
+      "h1": "Кабинет",
+      "hasEmpty": true,
+      "email": "c5probe_1790018461@nogotochki.test",
+      "session": {
+        "secure": true,
+        "httpOnly": true,
+        "sameSite": "Lax"
+      }
+    },
+    {
+      "msg": "logout",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "msg": "after-logout",
+      "url": "https://nogotochki-test.ru/index.html",
+      "hasLoginLink": true,
+      "hasLogout": false,
+      "sessionPresent": false,
+      "sessionValueLen": 0
+    },
+    {
+      "msg": "me-after-logout",
+      "status": 401,
+      "body": "{\"error\":{\"code\":\"UNAUTHORIZED\",\"message\":\"Нужна авторизация\"}}"
+    },
+    {
+      "msg": "revisit-cabinet",
+      "url": "https://nogotochki-test.ru/auth.html?next=cabinet.html",
+      "hasAuthForm": true,
+      "hasOthersAppointments": false,
+      "nextOk": true
+    },
+    {
+      "msg": "admin-login-api",
+      "status": 401,
+      "body": "{\"error\":{\"code\":\"UNAUTHORIZED\",\"message\":\"Неверный email или пароль\"}}"
+    },
+    {
+      "msg": "done",
+      "overall": "pass (cabinet); admin blocked",
+      "client": {
+        "status": "pass",
+        "afterLogoutUrl": "https://nogotochki-test.ru/index.html",
+        "hasLoginLink": true,
+        "meStatus": 401,
+        "revisitUrl": "https://nogotochki-test.ru/auth.html?next=cabinet.html",
+        "nextOk": true,
+        "hasOthersAppointments": false
+      },
+      "admin": {
+        "status": "blocked",
+        "reason": "seed admin missing / login failed",
+        "loginStatus": 401
+      }
+    }
+  ],
+  "clientPart": {
+    "status": "pass",
+    "afterLogoutUrl": "https://nogotochki-test.ru/index.html",
+    "hasLoginLink": true,
+    "meStatus": 401,
+    "revisitUrl": "https://nogotochki-test.ru/auth.html?next=cabinet.html",
+    "nextOk": true,
+    "hasOthersAppointments": false
+  },
+  "adminPart": {
+    "status": "blocked",
+    "reason": "seed admin missing / login failed",
+    "loginStatus": 401
+  },
+  "overall": "pass (cabinet); admin blocked",
+  "finishedAt": "2026-09-21T19:33:58.658Z"
+}
