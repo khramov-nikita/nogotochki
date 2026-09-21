@@ -1,8 +1,9 @@
 services:
   nogotochki:
     build: .
-    ports:
-      - "3000:3000"
+    # Внутренний порт для Coolify-прокси; без host bind 3000:3000 (конфликт при редеплое).
+    expose:
+      - "3000"
     environment:
       NODE_ENV: production
       PORT: "3000"
