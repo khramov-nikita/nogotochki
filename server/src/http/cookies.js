@@ -1,5 +1,17 @@
 const COOKIE_NAME = "session";
 
+/** Secure only when the browser hits us over HTTPS (not just NODE_ENV=production). */
+export function shouldUseSecureCookies(req) {
+  if (req?.secure) {
+    return true;
+  }
+  const proto = String(req?.get?.("x-forwarded-proto") || "")
+    .split(",")[0]
+    .trim()
+    .toLowerCase();
+  return proto === "https";
+}
+
 export function parseCookies(header) {
   const out = {};
   if (!header) {
