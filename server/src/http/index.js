@@ -1,11 +1,15 @@
 import { closeDb, getDb } from "../db/connection.js";
 import { applyMigrations } from "../db/migrate.js";
+import { ensureCatalogSeed } from "../db/ensure-catalog-seed.js";
+import { bootstrapAdmin } from "../db/bootstrap-admin.js";
 import { purgeExpiredHolds } from "../domain/cleanup.js";
 import { purgeExpiredSessions } from "../domain/auth.js";
 import { createApp } from "./app.js";
 import { getConfig } from "./config.js";
 
 applyMigrations();
+ensureCatalogSeed();
+bootstrapAdmin();
 
 const app = createApp();
 const config = getConfig();

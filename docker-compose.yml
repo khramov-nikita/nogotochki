@@ -1,0 +1,17 @@
+services:
+  nogotochki:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      DATABASE_PATH: /data/nogotochki.sqlite
+      YANDEX_OAUTH_STUB: "0"
+      TRUST_PROXY: "1"
+    volumes:
+      - nogotochki_data:/data
+    restart: unless-stopped
+
+volumes:
+  nogotochki_data:

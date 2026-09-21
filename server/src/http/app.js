@@ -1,3 +1,5 @@
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import express from "express";
 import { errorHandler, notFoundHandler } from "./errors.js";
 import { getConfig } from "./config.js";
@@ -10,6 +12,8 @@ import authRouter from "./routes/auth.js";
 import catalogRouter from "./routes/catalog.js";
 import holdsRouter from "./routes/holds.js";
 import notificationsRouter from "./routes/notifications.js";
+
+const webRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../web");
 
 export function createApp() {
   const app = express();
@@ -40,6 +44,8 @@ export function createApp() {
     ["/admin", "/admin/", "/admin/services", "/admin/services/", "/admin/masters", "/admin/masters/"],
     adminPagesHandler,
   );
+
+  app.use(express.static(webRoot));
 
   app.use(notFoundHandler);
   app.use(errorHandler);
